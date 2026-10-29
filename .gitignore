@@ -1,0 +1,91 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Large disassembly text dumps (16-24MB each)
+*.dll.asm
+*.asm
+
+# FMOD Studio temporary build and project user caches
+.cache/
+.user/
+.unsaved/
+Build/
+*.fspro.user
+
+# Temporary test outputs and scratch directories
+scratch/
+test_*/
+projects/
+*.bak
+*.zip
+
+# Game test directories and banks
+MicGame/
+ReactionGame/
+banks/
+*.bank
+
+# External reference repos & tools
+PT-FSPRO-Recreation-main/
+python-fsb5-master/
+
+# Binary libraries and executables
+*.dll
+*.lib
+*.exe
+*.a
+
+# IDA Pro / Disassembly artifacts
+*.i64
+*.lst
+*.idb
+
+# External SDK directory
+api/
+
+# Unreleased / WIP decompiler scripts
+fmod_project_decompiler.py
+fmod_bank_engine.py
+fmod_dsp_registry.py
+fsb5_extractor.py
+fmod_xml_builder.py
+
+
+

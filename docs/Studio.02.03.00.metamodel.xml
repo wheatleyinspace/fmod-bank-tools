@@ -1,0 +1,1295 @@
+<model name="Studio.02.03.00" rootEntity="Workspace">
+  <entities>
+    <entity name="Selectable" isAbstract="true">
+      <relationship name="selector" inverseName="selectables" storageType="transient" cardinality="toone" destinationType="Selector"/>
+    </entity>
+    <entity name="Selector" isAbstract="true">
+      <relationship name="selectables" inverseName="selector" encodingMethod="reference" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="Selectable"/>
+    </entity>
+    <entity name="Colorable" isAbstract="true">
+      <property name="color" dataType="string" defaultValue="Default" isSearchable="true"/>
+    </entity>
+    <entity name="Notable" isAbstract="true">
+      <property name="note" dataType="string"/>
+    </entity>
+    <entity name="Taggable" isAbstract="true">
+      <relationship name="tags" inverseName="taggables" encodingMethod="reference" copyBehavior="shallow" cardinality="tomany" ordering="ordered" destinationType="Tag" loadingMethod="precached"/>
+    </entity>
+    <entity name="Locale" filePath="Metadata/Locale/{id}.xml">
+      <property name="name" dataType="string"/>
+      <property name="localeCode" dataType="string"/>
+      <relationship name="uiActiveLocaleOwner" inverseName="activeLocale" storageType="transient" cardinality="toone" destinationType="ProjectSettings"/>
+      <relationship name="workspace" inverseName="locales" cardinality="toone" destinationType="Workspace" autoGenerate="Path(Workspace)" isRequired="true"/>
+    </entity>
+    <entity name="EffectPreset" superEntity="WorkspaceItem" filePath="Metadata/EffectPreset/{id}.xml">
+      <relationship name="effect"  inverseName="presetOwner" cardinality="toone" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" destinationType="MixerEffect" isRequired="true"/>
+      <relationship-override name="folder" destinationType="EffectPresetFolder" autoGenerate="Path(MasterEffectPresetFolder)"/>
+      <relationship name="proxies" inverseName="preset" cardinality="tomany" nullifyBehavior="cascade" destinationType="ProxyEffect" loadingMethod="precached"/>
+    </entity>
+    <entity name="ParameterPreset" superEntity="WorkspaceItem" filePath="Metadata/ParameterPreset/{id}.xml">
+      <relationship name="parameter"  inverseName="presetOwner" cardinality="toone" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" destinationType="GameParameter" isRequired="true"/>
+      <relationship-override name="folder" destinationType="ParameterPresetFolder" autoGenerate="Path(MasterParameterPresetFolder)"/>
+    </entity>
+    <entity name="EffectPresetFolder" superEntity="Folder" filePath="Metadata/EffectPresetFolder/{id}.xml">
+      <relationship-override name="items" typeOrdering="EffectPresetFolder, EffectPreset"/>
+      <relationship-override name="folder" autoGenerate="Path(MasterEffectPresetFolder)"/>    
+    </entity>
+    <entity name="MasterEffectPresetFolder" superEntity="EffectPresetFolder" isSingleton="true" filePath="Metadata/EffectPresetFolder/{id}.xml">
+      <property-override name="name" defaultValue="Master"/>
+      <relationship name="workspace" inverseName="masterEffectPresetFolder" cardinality="toone" destinationType="Workspace" isRequired="true"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="ParameterPresetFolder" superEntity="Folder" filePath="Metadata/ParameterPresetFolder/{id}.xml">
+      <relationship-override name="items" typeOrdering="ParameterPresetFolder, ParameterPreset"/>
+      <relationship-override name="folder" autoGenerate="Path(MasterParameterPresetFolder)"/>
+    </entity>
+    <entity name="MasterParameterPresetFolder" superEntity="ParameterPresetFolder" isSingleton="true" filePath="Metadata/ParameterPresetFolder/{id}.xml">
+      <property-override name="name" defaultValue="Master"/>
+      <relationship name="workspace" inverseName="masterParameterPresetFolder" cardinality="toone" destinationType="Workspace" isRequired="true"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="Platform" superEntity="Encodable" filePath="Metadata/Platform/{id}.xml">
+      <property name="hardwareType" dataType="enum"/>
+      <property name="name" dataType="string"/>
+      <property name="subDirectory" dataType="string"/>
+      <property name="speakerFormat" dataType="enum" defaultValue="0"/>
+      <property name="buildMetadataOnly" dataType="bool" defaultValue="false"/>
+      <property name="sampleDataAlign4K" dataType="bool" defaultValue="false"/>
+      <relationship name="uiActivePlatformOwner" inverseName="activePlatform" storageType="transient" cardinality="toone" destinationType="ProjectSettings"/>
+      <relationship name="workspace" inverseName="platforms" cardinality="toone" destinationType="Workspace" autoGenerate="Path(Workspace)" isRequired="true"/>
+      <relationship name="associatedSettings" inverseName="platform" nullifyBehavior="cascade" cardinality="tomany" destinationType="EncodingSetting"/>
+      <relationship name="excludedItems" inverseName="excludedPlatforms" cardinality="tomany" copyBehavior="shallow" encodingMethod="external" destinationType="PlatformSpecificItem"/>
+      <relationship-override name="encodingSettings" cardinality="toone" autoGenerate="EncodingSetting" isRequired="true"/>
+    </entity>
+    <entity name="EncodingSetting" filePath="Metadata/EncodingSetting/{id}.xml">
+      <property name="encodingFormat" dataType="enum" defaultValue="0"/>
+      <property name="quality" dataType="int" defaultValue="80"/>
+      <property name="sampleRateMode" dataType="enum" defaultValue="0"/>
+      <property name="sampleRate" dataType="int" defaultValue="48000"/>
+      <property name="loadingMode" dataType="enum" defaultValue="0"/>
+      <relationship name="platform" inverseName="associatedSettings" encodingMethod="reference" cardinality="toone" destinationType="Platform" isRequired="true"/>
+      <relationship name="encodable" inverseName="encodingSettings" encodingMethod="reference" cardinality="toone" destinationType="Encodable" isRequired="true"/>
+    </entity>
+    <entity name="ReferenceableData" isAbstract="true">
+      <relationship name="dataReferees" inverseName="referenceableData" cardinality="tomany" destinationType="DataReferee"/>
+    </entity>
+    <entity name="Encodable" isAbstract="true">
+      <relationship name="encodingSettings" inverseName="encodable" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="EncodingSetting"/>
+    </entity>
+    <entity name="Asset" superEntity="Notable, Colorable" filePath="Metadata/Asset/{id}.xml" isAbstract="true" isUndoSupported="false">
+      <property name="assetPath" dataType="string" propertyType="filereference"/>
+      <relationship name="masterAssetFolder" inverseName="assets" encodingMethod="reference" cardinality="toone" destinationType="MasterAssetFolder" autoGenerate="Path(MasterAssetFolder)" isRequired="true"/>
+    </entity>
+    <entity name="DataReferee" isAbstract="true">
+      <relationship name="referenceableData" inverseName="dataReferees" cardinality="toone" encodingMethod="reference" destinationType="ReferenceableData"/>
+    </entity>
+    <entity name="DataFile" superEntity="Asset, ReferenceableData" filePath="Metadata/DataFile/{id}.xml" isUndoSupported="false"/>      
+    <entity name="EncodableAsset" superEntity="Asset, Encodable" filePath="Metadata/Asset/{id}.xml" isUndoSupported="false"/>
+    <entity name="MasterAssetFolder" superEntity="EncodableAsset" isSingleton="true" filePath="Metadata/Asset/{id}.xml" isUndoSupported="false">
+      <property name="assetDirectory" dataType="string" storageType="transient"/>
+      <property name="dawProjectSourceDirectory" dataType="string" storageType="transient"/>
+      <property name="streamingAssetThresholdLength" dataType="double" defaultValue="10"/>
+      <relationship name="assets" inverseName="masterAssetFolder" nullifyBehavior="cascade" cardinality="tomany" destinationType="Asset"/>
+      <relationship-override name="masterAssetFolder" isRequired="false"/>
+      <relationship name="workspace" inverseName="masterAssetFolder" cardinality="toone" destinationType="Workspace" autoGenerate="Path(Workspace)" isRequired="true"/>    
+    </entity>
+    <entity name="AudioFile" superEntity="EncodableAsset, ReferenceableData, ProgrammerSoundPlaceholder" filePath="Metadata/AudioFile/{id}.xml" isUndoSupported="false">
+      <property name="isStreaming" dataType="bool" defaultValue="false"/>
+      <property name="frequencyInKHz" dataType="float" defaultValue="0"/>
+      <property name="channelCount" dataType="int" defaultValue="0"/>
+      <property name="length" dataType="double" defaultValue="0" isSearchable="true"/>
+      <relationship name="sounds" inverseName="audioFile" nullifyBehavior="cascade" encodingMethod="external" cardinality="tomany" destinationType="SingleSound"/>
+    </entity>
+    <entity name="DAWProject" superEntity="EncodableAsset" filePath="Metadata/DAWProject/{id}.xml" isUndoSupported="false">
+      <property name="dawProjectPath" dataType="string"/>
+      <property name="renderedAssetsPath" dataType="string"/>
+      <relationship name="assets" inverseName="project" cardinality="tomany" destinationType="DAWAsset"/>
+    </entity>
+    <entity name="DAWAsset" superEntity="AudioFile" filePath="Metadata/DAWAsset/{id}.xml" isUndoSupported="false">
+      <relationship name="project" inverseName="assets" encodingMethod="reference" cardinality="toone" destinationType="DAWProject" isRequired="true"/>
+    </entity>	
+    <entity name="AudioSettings" isGlobal="true" isSingleton="optional">
+      <property name="driverName" dataType="string" storageType="transient"/>
+      <property name="deviceId" dataType="guid" storageType="transient"/>
+      <property name="deviceName" dataType="string" storageType="transient"/>
+      <property name="forcedBlockSize" dataType="int" storageType="transient" defaultValue="0"/>
+    </entity>
+    <entity name="Track" superEntity="Selectable" isAbstract="true">
+      <property name="uiTrackHeight" dataType="int" storageType="transient" defaultValue="0"/>
+    </entity>
+    <entity name="AudioTrack" superEntity="Track" isAbstract="true">
+      <property name="uiAutomationTracksVisible" dataType="bool" defaultValue="false" storageType="transient"/>
+      <relationship name="automationTracks" inverseName="audioTrack" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="AutomationTrack"/>
+      <relationship name="modules" inverseName="audioTrack" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="Module"/>
+    </entity>
+    <entity name="AutomatableObject" isAbstract="true">
+      <property name="uiModulationDrawerVisible" dataType="bool" storageType="transient"/>
+      <property name="uiTriggerBehaviorDrawerVisible" dataType="bool" storageType="transient"/>
+      <property name="uiInputGainDrawerVisible" dataType="bool" storageType="transient"/>
+      <property name="uiWetDryDrawerVisible" dataType="bool" storageType="transient"/>
+      <relationship name="automators" inverseName="objectBeingAutomated" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="Automator"/>
+      <relationship name="modulators" inverseName="objectBeingModulated" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="Modulator"/>
+      <relationship name="snapshotProperties" inverseName="automatableObject" nullifyBehavior="cascade" cardinality="tomany" destinationType="SnapshotProperty"/>      
+      <relationship name="customBindings" inverseName="linkedObject" storageType="transient" cardinality="toone" destinationType="ControlSurfaceCustomBinding"/>
+    </entity>
+    <entity name="ParameterPrototype" isAbstract="true">
+      <relationship name="automationCurves" inverseName="parameter" nullifyBehavior="cascade" cardinality="tomany" destinationType="AutomationCurve" loadingMethod="precached"/>      
+    </entity>
+    <entity name="AutomationCurve" isLazyLoadSupported="true">
+      <relationship name="automator" inverseName="automationCurves" cardinality="toone" destinationType="Automator" isRequired="true"/>
+      <relationship name="parameter" inverseName="automationCurves" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="ParameterPrototype" isRequired="true" loadingMethod="precached"/>
+      <relationship name="automationPoints" inverseName="automationCurve" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="AutomationPoint"/>
+    </entity>
+    <entity name="AutomationPoint" superEntity="Selectable">
+      <property name="position" dataType="double"/>
+      <property name="value" dataType="float"/>
+      <property name="curveShape" dataType="float" defaultValue="0"/>
+      <property name="isSCurve" dataType="bool" defaultValue="false"/>
+      <relationship name="automationCurve" inverseName="automationPoints" cardinality="toone" destinationType="AutomationCurve" isRequired="!startPointOwner and !endPointOwner"/>
+      <relationship name="startPointOwner" inverseName="startPoint" cardinality="toone" destinationType="FadeCurve" isRequired="!automationCurve and !endPointOwner"/>
+      <relationship name="endPointOwner" inverseName="endPoint" cardinality="toone" destinationType="FadeCurve" isRequired="!automationCurve and !startPointOwner"/>
+    </entity>
+    <entity name="Automator">
+      <property name="nameOfPropertyBeingAutomated" dataType="utf8"/>
+      <relationship name="objectBeingAutomated" inverseName="automators" cardinality="toone" destinationType="AutomatableObject" isRequired="true"/>
+      <relationship name="automationCurves" inverseName="automator" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="AutomationCurve"/>
+      <relationship name="automationTracks" inverseName="automator" nullifyBehavior="cascade" cardinality="tomany" destinationType="AutomationTrack" loadingMethod="precached"/>
+    </entity>
+    <entity name="AutomationTrack" superEntity="Track" isLazyLoadSupported="true">
+      <relationship name="automator" inverseName="automationTracks" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="Automator" isRequired="true" loadingMethod="precached"/>
+      <relationship name="audioTrack" inverseName="automationTracks" cardinality="toone" destinationType="AudioTrack"/>
+    </entity>
+    <entity name="BankFolder" superEntity="Folder" filePath="Metadata/BankFolder/{id}.xml">
+      <relationship-override name="folder" autoGenerate="Path(MasterBankFolder)"/>
+    </entity>>
+    <entity name="MasterBankFolder" superEntity="BankFolder" isSingleton="true" filePath="Metadata/BankFolder/{id}.xml">
+      <property-override name="name" defaultValue="Master"/>
+      <relationship name="workspace" inverseName="masterBankFolder" cardinality="toone" destinationType="Workspace" isRequired="true"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="Bank" superEntity="WorkspaceItem" filePath="Metadata/Bank/{id}.xml">
+      <property name="isMasterBank" dataType="bool" defaultValue="false"/>
+      <property name="dontLoopOptionEnabled" dataType="bool" defaultValue="false"/><!-- HACK FOR TURN10 -->
+      <relationship name="audioTable" inverseName="bank" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="AudioTable"/>
+      <relationship name="events" inverseName="banks" copyBehavior="shallow" encodingMethod="reference" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="Event" loadingMethod="precached"/>
+      <relationship-override name="folder" autoGenerate="Path(MasterBankFolder)"/>
+    </entity>
+    <entity name="AudioTable" superEntity="WorkspaceItem, Encodable, ProgrammerSoundPlaceholder">
+      <property name="sourceDirectory" dataType="string"/>
+      <property name="includeSubDirectories" dataType="bool" defaultValue="false"/>
+      <property name="isLocalized" dataType="bool" defaultValue="false"/>
+      <relationship name="bank" inverseName="audioTable" cardinality="toone" destinationType="Bank" isRequired="true"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="ThreeEQEffect" superEntity="MixerEffect">
+      <property name="lowGain" dataType="float" defaultValue="0"/>
+      <property name="midGain" dataType="float" defaultValue="0"/>
+      <property name="highGain" dataType="float" defaultValue="0"/>
+      <property name="lowCrossover" dataType="float" defaultValue="400"/>
+      <property name="highCrossover" dataType="float" defaultValue="4000"/>
+      <property name="crossoverSlope" dataType="enum" defaultValue="1"/>
+    </entity>
+    <entity name="ChorusEffect" superEntity="MixerEffect">
+      <property name="rate" dataType="float" defaultValue="0.8"/>
+      <property name="depth" dataType="float" defaultValue="3"/>
+      <property name="mix" dataType="float" defaultValue="100"/>
+    </entity>
+    <entity name="CommandSound" superEntity="Sound" isLazyLoadSupported="true">
+      <property name="commandType" dataType="enum" defaultValue="0"/>
+      <property name="targetValue" dataType="double" defaultValue="0"/>
+      <property-override name="isAsync" isHidden="true"/>
+      <property-override name="isCutoff" isHidden="true"/>
+      <property-override name="startOffset" isHidden="true"/>
+      <property-override name="volume" isHidden="true"/>
+      <property-override name="pitch" isHidden="true"/>
+      <property-override name="voiceStealing" isHidden="true"/>
+      <property-override name="maxVoices" isHidden="true"/>
+      <property-override name="color" defaultValue="Purple"/>
+      <relationship name="commandTarget" inverseName="commandSounds" encodingMethod="reference" nullifyBehavior="sever" copyBehavior="shallow" cardinality="toone" destinationType="CommandTarget" loadingMethod="precached"/>
+    </entity>
+    <entity name="CommandTarget" isAbstract="true">
+      <relationship name="commandSounds" inverseName="commandTarget" cardinality="tomany" encodingMethod="external" destinationType="CommandSound" loadingMethod="precached"/>
+    </entity>
+    <entity name="CompressorEffect" superEntity="MixerEffect, SidechainTarget" isLazyLoadSupported="true">
+      <property name="threshold" dataType="float" defaultValue="0"/>
+      <property name="ratio" dataType="float" defaultValue="2.5"/>
+      <property name="attackTime" dataType="float" defaultValue="20"/>
+      <property name="releaseTime" dataType="float" defaultValue="200"/>
+      <property name="gain" dataType="float" defaultValue="0"/>
+      <property name="linkChannels" dataType="bool" defaultValue="true"/>
+    </entity>
+    <entity name="DelayEffect" superEntity="MixerEffect">
+      <property name="delay" dataType="float" defaultValue="500"/>
+      <property name="feedback" dataType="float" defaultValue="50"/>
+      <property name="level" dataType="float" defaultValue="0"/>
+      <property name="dryLevel" dataType="float" defaultValue="0"/>
+      <property name="delayChangeMode" dataType="enum" defaultValue="0"/>
+    </entity>
+    <entity name="EditorSettings" isGlobal="true" isSingleton="optional">
+      <property name="forcedDevicePixelRatio" dataType="float" defaultValue="0" storageType="transient"/>
+      <property name="followCursor" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="loopPlayback" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="autoplayAudioFilePlayback" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="loopAudioFilePlayback" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="compressedAudioFilePlayback" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="preferredOpenItemMethod" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="snapToItems" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="snapToRuler" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="showMarkerLines" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="showAutomationPointValues" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="showOverlappingInstrumentsInLanes" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="bulkEditEnabled" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="initialSyncEnabled" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="liveUpdateSyncConnectedPlatform" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="liveUpdateDisableStreamingSounds" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="apiPlaybackEnabled" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="mixerStripWidth" dataType="int" storageType="transient"/>
+      <property name="mixerStripHeight" dataType="int" storageType="transient"/>
+      <property name="mixerStripShowsEffects" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="mixerStripShowsSends" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="mixerStripShowsMacros" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="mixerStripShowsOutputs" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="defaultProfilerGraphType" dataType="enum" storageType="transient"/>
+      <property name="profilerTableValueMode" dataType="enum" storageType="transient"/>
+      <property name="profilerTableVisibleColumns" dataType="stringlist" storageType="transient"/>
+      <property name="profilerAutomaticScopeInMode" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="autoSaveEnabled" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="startupMode" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="editorScrollModeNoModifier" dataType="enum" defaultValue="1" storageType="transient"/>
+      <property name="editorScrollModeShiftModifier" dataType="enum" defaultValue="2" storageType="transient"/>
+      <property name="editorScrollModeAltModifier" dataType="enum" defaultValue="3" storageType="transient"/>
+      <property name="editorScrollModeControlModifier" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="birdsEyeDragMode" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="buildThreadCount" dataType="int" defaultValue="0" storageType="transient"/>
+      <property name="emailAddress" dataType="string" storageType="transient"/>
+      <property name="recentFiles" dataType="stringlist" storageType="transient"/>
+      <property name="recentIpAddress" dataType="stringlist" storageType="transient"/>
+      <property name="liveUpdateAutoReconnect" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="recentVersionOpened" dataType="int" defaultValue="0" storageType="transient"/>
+      <property name="sampleEditor" dataType="string" storageType="transient"/>
+      <property name="showOnlyKnownAudioFileTypes" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="recentImportFolder" dataType="string" storageType="transient"/>
+      <property name="absoluteMouseModeEnabled" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="analyticsEnabled" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="timeDisplayMode" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="keyboardShortcuts" dataType="stringlist" storageType="transient"/>
+      <property name="uiDefaultTrackHeight" dataType="int" defaultValue="100" storageType="transient"/>
+      <property name="uiAutomationTracksVisible" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="uiModulationDrawerVisible" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="uiTriggerBehaviorDrawerVisible" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="uiInputGainDrawerVisible" dataType="enum" defaultValue="1" storageType="transient"/>
+      <property name="uiWetDryDrawerVisible" dataType="enum" defaultValue="1" storageType="transient"/>
+      <property name="uiView3DOrtho" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="uiView3DFront" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="uiView3DSize" dataType="float" defaultValue="-1" storageType="transient"/>
+      <property name="linkedAssetsRenderMode" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="linkedAssetsRemovalMode" dataType="enum" defaultValue="0" storageType="transient"/>
+      <property name="reaperApplicationPath" dataType="string" storageType="transient"/>
+      <property name="eventsBrowserSharesSelection" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="continuousZoomToFit" dataType="bool" defaultValue="false" storageType="transient"/>
+      <property name="restoreWindows" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="rememberWindowPositions" dataType="bool" defaultValue="true" storageType="transient"/>
+      <property name="uiViewHideVirtualEventInstances" dataType="bool" defaultValue="false" storageType="transient"/>
+    </entity>
+    <entity name="EffectChain" superEntity="MixerEffect">
+      <relationship name="effects" inverseName="owner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="MixerEffect"/>
+    </entity>
+    <entity name="Event" superEntity="Folder, Selector, Taggable, CommandTarget, ProfilerTrackable, ProfilerGraphable" isLazyLoadSupported="true" filePath="Metadata/Event/{id}.xml">
+      <property name="isDefault" dataType="bool" defaultValue="false"/>
+      <property name="outputFormat" dataType="enum" defaultValue="-1"/>
+      <property name="uiMarkerTracksVisible" dataType="bool" storageType="transient" defaultValue="true"/>
+      <property name="uiMaxMarkerTracksVisible" dataType="int" storageType="transient" defaultValue="8"/>
+      <relationship name="uiLastParameterSelection" inverseName="eventSelector" encodingMethod="reference" storageType="transient" cardinality="toone" destinationType="Parameter"/>
+      <relationship name="mixer" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="EventMixer" autoGenerate="EventMixer" isRequired="true"/>
+      <relationship name="masterTrack" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="MasterTrack" autoGenerate="MasterTrack" isRequired="true"/>
+      <relationship name="mixerInput" inverseName="event" nullifyBehavior="cascade" encodingMethod="embed" copyBehavior="deep" cardinality="toone" destinationType="MixerInput" autoGenerate="MixerInput" loadingMethod="precached" isRequired="true"/>
+      <relationship name="automatableProperties" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="EventAutomatableProperties" autoGenerate="EventAutomatableProperties" isRequired="true"/>
+      <relationship name="markerTracks" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="MarkerTrack" autoGenerate="MarkerTrack" isRequired="true"/>
+      <relationship name="groupTracks" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="GroupTrack"/>
+      <relationship name="returnTracks" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="ReturnTrack"/>
+      <relationship name="timeline" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="Timeline" autoGenerate="Timeline" isRequired="true"/>
+      <relationship name="parameters" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="Parameter"/>
+      <relationship name="userProperties" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="UserProperty"/>
+      <relationship name="references" inverseName="event" nullifyBehavior="cascade" cardinality="tomany" encodingMethod="external" destinationType="EventSound" loadingMethod="precached"/>
+      <relationship name="sandboxEmitters" inverseName="event" nullifyBehavior="cascade" cardinality="tomany" encodingMethod="external" destinationType="SandboxEmitter" loadingMethod="precached"/>
+      <relationship name="banks" inverseName="events" encodingMethod="reference" copyBehavior="shallow" cardinality="tomany" destinationType="Bank" loadingMethod="precached"/>
+      <relationship name="defaultEvent" inverseName="clonedEvents" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="Event" loadingMethod="precached"/>
+      <relationship name="clonedEvents" inverseName="defaultEvent" cardinality="tomany" destinationType="Event" loadingMethod="precached"/>
+      <relationship-override name="folder" autoGenerate="Path(MasterEventFolder)"/>
+      <relationship-override name="items" destinationType="Event"/>
+    </entity>
+    <entity name="EventAutomatableProperties" superEntity="AutomatableObject">
+      <property name="isPersistent" dataType="bool" defaultValue="false" isSearchable="true"/>
+      <property name="maxVoices" dataType="int" defaultValue="65"/>
+      <property name="voiceStealing" dataType="enum" defaultValue="0"/>
+      <property name="priority" dataType="int" defaultValue="2"/>
+      <property name="dopplerEnabled" dataType="bool" defaultValue="false"/>
+      <property name="dopplerScale" dataType="float" defaultValue="100"/>
+      <property name="snapshotIntensity" dataType="float" defaultValue="100"/>
+      <property name="minimumDistance" dataType="float" defaultValue="1"/>
+      <property name="maximumDistance" dataType="float" defaultValue="20"/>
+      <property name="noLookahead" dataType="bool" defaultValue="false"/>
+      <property name="triggerCooldown" dataType="float" defaultValue="0"/>
+      <property name="sampleDataLoadingMode" dataType="int" defaultValue="0"/>
+      <relationship name="event" inverseName="automatableProperties" cardinality="toone" destinationType="Event" isRequired="true"/>
+    </entity>
+    <entity name="EventMixer" superEntity="Mixer">
+      <relationship name="event" inverseName="mixer" cardinality="toone" destinationType="Event" isRequired="true"/>
+      <relationship-override name="snapshotList" autoGenerate="" isRequired="false"/>      
+      <relationship-override name="masterBus" encodingMethod="embed" destinationType="EventMixerMaster" autoGenerate=""/>
+      <relationship-override name="workspace" isRequired="false"/>
+    </entity>
+    <entity name="EventMixerGroup" superEntity="MixerGroup, Selectable">
+      <property-override name="color" isSearchable="false"/>
+      <relationship name="groupTrack" inverseName="mixerGroup" cardinality="toone" destinationType="GroupTrack" isRequired="true"/>
+      <relationship-override name="output" loadingMethod="onload" autoGenerate="Path(groupTrack.event.masterTrack.mixerGroup)"/>
+      <relationship-override name="input" copyBehavior="none" loadingMethod="onload"/>
+    </entity>
+    <entity name="EventMixerMaster" superEntity="MixerMaster, Selectable">
+      <property-override name="name" defaultValue="Master"/>
+      <property-override name="color" isSearchable="false"/>
+      <relationship name="groupTrack" inverseName="mixerGroup" cardinality="toone" destinationType="MasterTrack" isRequired="true"/>
+      <relationship-override name="mixer" autoGenerate="Path(groupTrack.event.mixer)"/>
+      <relationship-override name="output" loadingMethod="onload"/>
+      <relationship-override name="input" loadingMethod="onload"/>
+    </entity>
+    <entity name="EventMixerReturn" superEntity="MixerReturn, Selectable">
+      <property-override name="color" isSearchable="false"/>
+      <relationship name="returnTrack" inverseName="mixerReturn" cardinality="toone" destinationType="ReturnTrack" isRequired="true"/>
+      <relationship-override name="output" loadingMethod="onload" autoGenerate="Path(returnTrack.event.masterTrack.mixerGroup)"/>
+    </entity>
+    <entity name="EventSound" superEntity="Sound" isLazyLoadSupported="true">
+      <property-override name="color" defaultValue="Yellow"/>
+      <relationship name="parameters" inverseName="owner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="ParameterProperty"/>
+      <relationship name="event" inverseName="references" encodingMethod="reference" nullifyBehavior="sever" copyBehavior="deep" cardinality="toone" destinationType="Event" loadingMethod="precached" isRequired="true"/>
+    </entity>
+    <entity name="FadeCurve">
+      <relationship name="startPoint" inverseName="startPointOwner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="AutomationPoint" isRequired="true"/>
+      <relationship name="endPoint" inverseName="endPointOwner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="AutomationPoint" isRequired="true"/>
+      <relationship name="fadeInOwner" inverseName="fadeInCurve" cardinality="toone" destinationType="Module" isRequired="!fadeOutOwner"/>
+      <relationship name="fadeOutOwner" inverseName="fadeOutCurve" cardinality="toone" destinationType="Module" isRequired="!fadeInOwner"/>
+      <relationship name="relatedModule" inverseName="relatedFadeCurves" encodingMethod="reference" cardinality="toone" destinationType="Module"/>
+    </entity>
+    <entity name="FlangerEffect" superEntity="MixerEffect">
+      <property name="rate" dataType="float" defaultValue="0.1"/>
+      <property name="delay" dataType="float" defaultValue="1"/>
+      <property name="mix" dataType="float" defaultValue="50"/>
+    </entity>
+    <entity name="Folder" superEntity="WorkspaceItem" isAbstract="true">
+      <relationship name="items" inverseName="folder" nullifyBehavior="cascade" copyBehavior="deep" encodingMethod="reference" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="WorkspaceItem" loadingMethod="precached"/>
+    </entity>
+    <entity name="EventFolder" superEntity="Folder" filePath="Metadata/EventFolder/{id}.xml">
+      <relationship-override name="folder" autoGenerate="Path(MasterEventFolder)"/>
+      <relationship-override name="items" typeOrdering="EventFolder, Event"/>
+    </entity>
+    <entity name="MasterEventFolder" superEntity="EventFolder" isSingleton="true" filePath="Metadata/EventFolder/{id}.xml">
+      <relationship name="workspace" inverseName="masterEventFolder" cardinality="toone" destinationType="Workspace" isRequired="true"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="GameParameter" superEntity="AutomatableObject, ParameterPrototype, CommandTarget, Selectable, ProfilerGraphable">
+      <property name="parameterType" dataType="enum" defaultValue="0" isSearchable="true"/>
+      <property name="minimum" dataType="double" defaultValue="0"/>
+      <property name="maximum" dataType="double" defaultValue="1"/>
+      <property name="enumerationLabels" dataType="stringlist"/>
+      <property name="isGlobal" dataType="bool" defaultValue="false"/>
+      <property name="isReadOnly" dataType="bool" defaultValue="false"/>
+      <property name="isHeld" dataType="bool" defaultValue="false"/>
+      <property name="initialValue" dataType="double"/>
+      <property name="velocity" dataType="double" defaultValue="0"/>
+      <property name="cursorPosition" dataType="double" storageType="transient"/>
+      <property name="isExposedRecursively" dataType="bool" defaultValue="true"/>
+      <relationship name="presetOwner" inverseName="parameter" cardinality="toone" destinationType="ParameterPreset" isRequired="true"/>
+      <relationship name="proxies" inverseName="preset" nullifyBehavior="cascade" encodingMethod="external" cardinality="tomany" destinationType="ParameterProxy" loadingMethod="precached"/>
+      <relationship name="parameterConditions" inverseName="parameter" nullifyBehavior="cascade" cardinality="tomany" destinationType="ParameterCondition" loadingMethod="precached"/>
+      <relationship name="sandboxParameters" inverseName="parameter" nullifyBehavior="cascade" cardinality="tomany" destinationType="SandboxParameter" loadingMethod="precached"/>
+    </entity>
+    <entity name="ParameterProxy" superEntity="Parameter, Selectable" isLazyLoadSupported="true">
+      <relationship name="references" inverseName="parameter" nullifyBehavior="cascade" encodingMethod="external" cardinality="tomany" destinationType="ParameterProperty" loadingMethod="precached"/>
+      <relationship name="preset" inverseName="proxies" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="GameParameter" isRequired="true" loadingMethod="precached"/>
+    </entity>
+    <entity name="GroupTrack" superEntity="AudioTrack, PlatformSpecificItem">
+      <property name="streaming" dataType="bool" defaultValue="false"/>
+      <relationship name="mixerGroup" inverseName="groupTrack" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="EventMixerGroup" autoGenerate="EventMixerGroup" isRequired="true"/>
+      <relationship name="event" inverseName="groupTracks" cardinality="toone" destinationType="Event" isRequired="true"/>
+    </entity>
+    <entity name="HighpassEffect" superEntity="MixerEffect">
+      <property name="cutoff" dataType="float" defaultValue="2000"/>
+      <property name="resonance" dataType="float" defaultValue="1"/>
+    </entity>
+    <entity name="MultibandDynamicsEffect" superEntity="MixerEffect, SidechainTarget">
+      <property name="lowerFrequency" dataType="float" defaultValue="400"/>
+      <property name="upperFrequency" dataType="float" defaultValue="4000"/>
+      <property name="linkChannels" dataType="bool" defaultValue="true"/>
+      <property name="modeA" dataType="enum" defaultValue="2"/>
+      <property name="modeB" dataType="enum" defaultValue="2"/>
+      <property name="modeC" dataType="enum" defaultValue="2"/>
+      <property name="gainA" dataType="float" defaultValue="0"/>
+      <property name="gainB" dataType="float" defaultValue="0"/>
+      <property name="gainC" dataType="float" defaultValue="0"/>
+      <property name="thresholdA" dataType="float" defaultValue="-5"/>
+      <property name="thresholdB" dataType="float" defaultValue="-5"/>
+      <property name="thresholdC" dataType="float" defaultValue="-5"/>
+      <property name="ratioA" dataType="float" defaultValue="2.5"/>
+      <property name="ratioB" dataType="float" defaultValue="2.5"/>
+      <property name="ratioC" dataType="float" defaultValue="2.5"/>
+      <property name="attackA" dataType="float" defaultValue="20"/>
+      <property name="attackB" dataType="float" defaultValue="20"/>
+      <property name="attackC" dataType="float" defaultValue="20"/>
+      <property name="releaseA" dataType="float" defaultValue="100"/>
+      <property name="releaseB" dataType="float" defaultValue="100"/>
+      <property name="releaseC" dataType="float" defaultValue="100"/>
+      <property name="gainMakeUpA" dataType="float" defaultValue="0"/>
+      <property name="gainMakeUpB" dataType="float" defaultValue="0"/>
+      <property name="gainMakeUpC" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="MultibandEqEffect" superEntity="MixerEffect">
+      <property name="filterTypeA" dataType="enum" defaultValue="1"/>
+      <property name="filterTypeB" dataType="enum" defaultValue="0"/>
+      <property name="filterTypeC" dataType="enum" defaultValue="0"/>
+      <property name="filterTypeD" dataType="enum" defaultValue="0"/>
+      <property name="filterTypeE" dataType="enum" defaultValue="0"/>
+      <property name="frequencyA" dataType="float" defaultValue="660"/>
+      <property name="frequencyB" dataType="float" defaultValue="40"/>
+      <property name="frequencyC" dataType="float" defaultValue="11000"/>
+      <property name="frequencyD" dataType="float" defaultValue="160"/>
+      <property name="frequencyE" dataType="float" defaultValue="2700"/>
+      <property name="qualityA" dataType="float" defaultValue="0.707"/>
+      <property name="qualityB" dataType="float" defaultValue="0.707"/>
+      <property name="qualityC" dataType="float" defaultValue="0.707"/>
+      <property name="qualityD" dataType="float" defaultValue="0.707"/>
+      <property name="qualityE" dataType="float" defaultValue="0.707"/>
+      <property name="gainA" dataType="float" defaultValue="0"/>
+      <property name="gainB" dataType="float" defaultValue="0"/>
+      <property name="gainC" dataType="float" defaultValue="0"/>
+      <property name="gainD" dataType="float" defaultValue="0"/>
+      <property name="gainE" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="ParamEqEffect" superEntity="MixerEffect">
+      <property name="centreFrequency" dataType="float" defaultValue="2000"/>
+      <property name="gain" dataType="float" defaultValue="0"/>
+      <property name="bandwidth" dataType="float" defaultValue="1"/>
+    </entity>
+    <entity name="SFXReverbEffect" superEntity="MixerEffect">
+      <property name="decayTime" dataType="float" defaultValue="1500"/>
+      <property name="earlyDelay" dataType="float" defaultValue="20"/>
+      <property name="lateDelay" dataType="float" defaultValue="40"/>
+      <property name="HFReference" dataType="float" defaultValue="5000"/>
+      <property name="HFDecayRatio" dataType="float" defaultValue="50"/>
+      <property name="diffusion" dataType="float" defaultValue="100"/>
+      <property name="density" dataType="float" defaultValue="100"/>
+      <property name="lowShelfFrequency" dataType="float" defaultValue="250"/>
+      <property name="lowShelfGain" dataType="float" defaultValue="0"/>
+      <property name="highCut" dataType="float" defaultValue="5000"/>
+      <property name="earlyLateMix" dataType="float" defaultValue="50"/>
+      <property name="wetLevel" dataType="float" defaultValue="-6"/>
+      <property name="dryLevel" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="ConvolutionReverbEffect" superEntity="MixerEffect, DataReferee">
+      <property name="startFrame" dataType="uint" defaultValue="0"/>
+      <property name="endFrame" dataType="uint" defaultValue="0"/>
+      <property name="wetLevel" dataType="float" defaultValue="0"/>
+      <property name="dryLevel" dataType="float" defaultValue="-80"/>
+      <property name="linkChannels" dataType="bool" defaultValue="true"/>
+      <relationship-override name="referenceableData" destinationType="AudioFile"/>
+    </entity>
+    <entity name="LimiterEffect" superEntity="MixerEffect">
+      <property name="boost" dataType="float" defaultValue="0"/>
+      <property name="ceiling" dataType="float" defaultValue="0"/>
+      <property name="release" dataType="float" defaultValue="10"/>
+      <property name="linkChannels" dataType="bool" defaultValue="true"/>
+    </entity>
+    <entity name="Loopable" isAbstract="true">
+      <property name="looping" dataType="bool" defaultValue="false"/>
+      <property name="playCount" dataType="int" defaultValue="0"/>
+    </entity>
+    <entity name="LoopRegion" superEntity="Region, Triggerable, Quantizable, TransitionDestination, TransitionTimelineOwner">
+      <property name="looping" dataType="int" defaultValue="1"/>
+    </entity>
+    <entity name="LowpassEffect" superEntity="MixerEffect">
+      <property name="cutoff" dataType="float" defaultValue="2000"/>
+      <property name="resonance" dataType="float" defaultValue="1"/>
+    </entity>
+    <entity name="LoudnessMeter" superEntity="MixerEffect">
+      <property name="meterRange" dataType="enum" defaultValue="0"/>
+      <property name="meterMode" dataType="enum" defaultValue="0"/>
+      <property name="loudnessTarget" dataType="int" defaultValue="-23"/>
+      <property name="loudnessScale" dataType="enum" defaultValue="0"/>
+    </entity>
+    <entity name="Marker" superEntity="AutomatableObject, Selectable" isAbstract="true">
+      <property name="position" dataType="double"/>
+      <relationship name="timeline" inverseName="markers" encodingMethod="reference" cardinality="toone" destinationType="Timeline" isRequired="true"/>
+      <relationship name="markerTrack" inverseName="markers" encodingMethod="reference" cardinality="toone" destinationType="MarkerTrack" isRequired="true"/>
+    </entity>
+    <entity name="MarkerTrack" superEntity="Track">
+      <relationship name="event" inverseName="markerTracks" cardinality="toone" destinationType="Event" isRequired="true"/>
+      <relationship name="markers" inverseName="markerTrack" cardinality="tomany" destinationType="Marker"/>
+    </entity>
+    <entity name="MasterTrack" superEntity="GroupTrack">
+      <relationship-override name="mixerGroup" destinationType="EventMixerMaster" autoGenerate="EventMixerMaster" isRequired="true"/>
+      <relationship-override name="event" inverseName="masterTrack" isRequired="true"/>
+    </entity>
+    <entity name="MeteringSettings" isGlobal="true" isSingleton="optional">
+      <property name="meterChannelOrdering" dataType="enum" defaultValue="2" storageType="transient"/>
+    </entity>
+    <entity name="Mixer" isSingleton="true" filePath="Metadata/Mixer.xml">
+      <relationship name="masterBus" inverseName="mixer" encodingMethod="reference" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="MixerMaster" autoGenerate="MixerMaster" isRequired="true"/>
+      <relationship name="vca" inverseName="mixer" nullifyBehavior="cascade" copyBehavior="deep"  encodingMethod="reference" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="MixerVCA"/>
+      <relationship name="port" inverseName="mixer" nullifyBehavior="cascade" copyBehavior="deep" encodingMethod="reference" cardinality="tomany" destinationType="MixerPort"/>
+      <relationship name="snapshotList" inverseName="mixer" encodingMethod="reference" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="SnapshotList" autoGenerate="Path(SnapshotList)" isRequired="true"/>
+      <relationship name="snapshots" inverseName="mixer" copyBehavior="shallow" cardinality="tomany" destinationType="Snapshot" loadingMethod="precached"/>
+      <relationship name="workspace" inverseName="mixer" cardinality="toone" destinationType="Workspace" isRequired="true"/>
+      <relationship name="uiMixerView" inverseName="mixer" nullifyBehavior="cascade" encodingMethod="reference" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="UiMixerView"/>
+    </entity>
+    <entity name="MixerBus" superEntity="MixerStrip" isAbstract="true">
+      <property name="overridingInputFormat" dataType="enum" defaultValue="-1"/>
+      <relationship name="effectChain" inverseName="bus" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep"  cardinality="toone" destinationType="MixerBusEffectChain" autoGenerate="MixerBusEffectChain" isRequired="true"/>
+      <relationship name="panner" inverseName="bus" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="MixerBusPanner" autoGenerate="MixerBusPanner" isRequired="true"/>
+      <relationship name="output" inverseName="input" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="MixerGroup" loadingMethod="precached" autoGenerate="Path(Mixer.masterBus)" isRequired="true"/>
+    </entity>
+    <entity name="MixerBusEffectChain" superEntity="EffectChain">
+      <relationship name="bus" inverseName="effectChain" cardinality="toone" destinationType="MixerBus" isRequired="true"/>
+      <relationship-override name="owner" isRequired="false"/>
+      <relationship-override name="effects" autoGenerate="MixerBusFader" isRequired="true"/>
+      <relationship-override name="presetOwner" isRequired="false"/>
+    </entity>
+    <entity name="MixerBusFader" superEntity="MixerEffect"/>
+    <entity name="PannerEffect" superEntity="MixerEffect">
+      <property name="stereoPan" dataType="float" defaultValue="0"/>
+      <property name="stereoLeftPan" dataType="float" defaultValue="0"/>
+      <property name="stereoRightPan" dataType="float" defaultValue="0"/>
+      <property name="surroundPanDirection" dataType="float" defaultValue="0"/>
+      <property name="surroundPanExtent" dataType="float" defaultValue="360"/>
+      <property name="surroundLFELevel" dataType="float" defaultValue="0"/>
+      <property name="stereoToSurroundPanMode" dataType="enum" defaultValue="1"/>
+      <property name="surroundStereoSeparation" dataType="float" defaultValue="60"/>
+      <property name="surroundStereoAxis" dataType="float" defaultValue="0"/>
+      <property name="surroundHeightBlend" dataType="float" defaultValue="0"/>
+      <property name="overridingOutputFormat" dataType="enum" defaultValue="-1"/>
+      <property name="disabledSpeakers" dataType="flags" defaultValue="0"/>
+      <property name="LFEUpmixEnabled" dataType="bool" defaultValue="false"/>
+    </entity>
+    <entity name="MixerBusPanner" superEntity="PannerEffect">
+      <relationship name="bus" inverseName="panner" cardinality="toone" destinationType="MixerBus" isRequired="!presetOwner"/>
+      <relationship-override name="owner" isRequired="false"/>
+      <relationship-override name="presetOwner" isRequired="!bus"/>
+    </entity>
+    <entity name="MixerEffect" superEntity="AutomatableObject, PlatformSpecificItem" isAbstract="true">
+      <property name="bypass" dataType="bool" defaultValue="false"/>
+      <property name="wetDryEnabled" dataType="bool" defaultValue="false"/>
+      <property name="wetDryMode" dataType="enum" defaultValue="0"/>
+      <property name="activeWhenSilent" dataType="bool" defaultValue="false"/>
+      <property name="inputGainEnabled" dataType="bool" defaultValue="false"/>
+      <property name="wetMix" dataType="float" defaultValue="100"/>
+      <property name="baseWetLevel" dataType="float" defaultValue="0"/>
+      <property name="baseDryLevel" dataType="float" defaultValue="-80"/>
+      <property name="inputGain" dataType="float" defaultValue="0"/>
+      <relationship name="owner" inverseName="effects" cardinality="toone" destinationType="EffectChain" isRequired="!presetOwner"/>
+      <relationship name="presetOwner" inverseName="effect" nullifyBehavior="cascade" cardinality="toone" destinationType="EffectPreset" isRequired="!owner"/>
+    </entity>
+    <entity name="ProxyEffect" superEntity="MixerEffect" isLazyLoadSupported="true">
+      <property name="inputFormat" dataType="enum" defaultValue="-1"/>
+      <relationship name="preset" inverseName="proxies" encodingMethod="reference" copyBehavior="deep" cardinality="toone" destinationType="EffectPreset" isRequired="true" loadingMethod="precached"/>
+    </entity>
+    <entity name="MixerGroup" superEntity="MixerBus" filePath="Metadata/Group/{id}.xml">
+      <property name="name" dataType="string"/>
+      <property name="pitch" dataType="float" defaultValue="0"/>
+      <property name="maxInstances" dataType="int" defaultValue="65"/>
+      <property name="instanceStealing" dataType="enum" defaultValue="0"/>
+      <relationship name="input" inverseName="output" nullifyBehavior="cascade" encodingMethod="reference" copyBehavior="deep" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="MixerBus" loadingMethod="precached" typeOrdering="MixerGroup, MixerReturn, MixerInput"/>
+    </entity>
+    <entity name="MixerInput" superEntity="MixerBus" isLazyLoadSupported="true">
+      <property-override name="color" isSearchable="false"/>
+      <relationship name="event" inverseName="mixerInput" cardinality="toone" destinationType="Event" loadingMethod="precached" isRequired="true"/>
+      <relationship-override name="output" isRequired="!event.folder.isOfType('Event')"/>
+    </entity>
+    <entity name="MixerMaster" superEntity="MixerGroup" isSingleton="true" filePath="Metadata/Master.xml">
+      <property-override name="name" defaultValue="Mixer Master"/>
+      <relationship name="mixer" inverseName="masterBus" encodingMethod="reference" cardinality="toone" destinationType="Mixer" isRequired="true"/>
+      <relationship-override name="output" isRequired="false"/>
+    </entity>
+    <entity name="MixerPort" superEntity="MixerGroup" filePath="Metadata/Port/{id}.xml">
+      <property name="portType" dataType="enum" defaultValue="0"/>
+      <relationship name="mixer" inverseName="port" encodingMethod="reference" cardinality="toone" destinationType="Mixer" isRequired="true"/>
+      <relationship-override name="output" isRequired="false"/>
+    </entity>
+    <entity name="MixerReturn" superEntity="MixerBus" filePath="Metadata/Return/{id}.xml">
+      <property name="name" dataType="string"/>
+      <relationship name="input" inverseName="mixerReturn" nullifyBehavior="cascade" cardinality="tomany" destinationType="MixerSend" loadingMethod="precached"/>
+    </entity>
+    <entity name="MixerSend" superEntity="MixerEffect" isLazyLoadSupported="true">
+      <property name="level" dataType="float" defaultValue="-80"/>
+      <property name="inputFormat" dataType="enum" defaultValue="-1"/>
+      <relationship name="mixerReturn" inverseName="input" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="MixerReturn" loadingMethod="precached" isRequired="true"/>
+    </entity>
+    <entity name="MixerStrip" superEntity="AutomatableObject, Notable, Colorable, ProfilerTrackable, ProfilerGraphable" isAbstract="true">
+      <property name="volume" dataType="float" defaultValue="0"/>
+      <relationship name="masters" inverseName="slaves" encodingMethod="reference" cardinality="tomany" destinationType="MixerVCA" loadingMethod="precached"/>
+      <relationship name="snapshotTracks" inverseName="mixerStrip" nullifyBehavior="cascade" cardinality="tomany" destinationType="SnapshotTrack"/>
+      <relationship name="uiMixerView" inverseName="assignedStrips" cardinality="tomany" destinationType="UiMixerView"/>
+    </entity>
+    <entity name="MixerVCA" superEntity="MixerStrip" filePath="Metadata/VCA/{id}.xml">
+      <property name="name" dataType="string"/>
+      <relationship name="slaves" inverseName="masters" encodingMethod="reference" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="MixerStrip" typeOrdering="MixerGroup, MixerReturn, MixerInput, MixerVCA" loadingMethod="precached"/>
+      <relationship name="mixer" inverseName="vca" encodingMethod="reference" cardinality="toone" destinationType="Mixer" autoGenerate="Path(Mixer)" isRequired="true"/>
+    </entity>
+    <entity name="UiMixerView" filePath="Metadata/MixerView/{id}.xml">
+      <property name="name" dataType="string"/>
+      <relationship name="assignedStrips" inverseName="uiMixerView" encodingMethod="reference" cardinality="tomany" destinationType="MixerStrip"/>
+      <relationship name="mixer" inverseName="uiMixerView" encodingMethod="reference" cardinality="toone" destinationType="Mixer" isRequired="true"/>
+    </entity>
+    <entity name="Modulator" superEntity="AutomatableObject" isAbstract="true">
+      <property name="nameOfPropertyBeingModulated" dataType="utf8"/>
+      <property name="clockSource" dataType="enum" defaultValue="0"/>
+      <relationship name="objectBeingModulated" inverseName="modulators" cardinality="toone" destinationType="AutomatableObject" isRequired="true"/>
+    </entity>
+    <entity name="Module" superEntity="AutomatableObject, Selectable, Triggerable, Colorable" isAbstract="true">
+      <property name="isAsync" dataType="bool" defaultValue="false"/>
+      <property name="isCutoff" dataType="bool" defaultValue="false"/>
+      <property name="start" dataType="double" defaultValue="0"/>
+      <property name="length" dataType="double" defaultValue="1"/>
+      <property name="delayType" dataType="enum" defaultValue="1"/>
+      <property name="minimumTimeDelay" dataType="double" defaultValue="0"/>
+      <property name="maximumTimeDelay" dataType="double" defaultValue="0"/>
+      <property name="quantizationInterval" dataType="enum" defaultValue="0"/>
+      <property name="startOffset" dataType="float" defaultValue="0"/>
+      <property name="timelockedOffset" dataType="double" defaultValue="0"/>
+      <property name="voiceStealing" dataType="enum" defaultValue="0"/>
+      <property name="maxVoices" dataType="int" defaultValue="65"/>
+      <property-override name="color" defaultValue="Blue" isSearchable="false"/>
+      <property name="name" dataType="string"/>
+      <relationship name="fadeInCurve" inverseName="fadeInOwner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="FadeCurve"/>
+      <relationship name="fadeOutCurve" inverseName="fadeOutOwner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="FadeCurve"/>
+      <relationship name="relatedFadeCurves" inverseName="relatedModule" nullifyBehavior="cascade" cardinality="tomany" destinationType="FadeCurve"/>
+      <relationship name="audioTrack" inverseName="modules" cardinality="toone" destinationType="AudioTrack" isRequired="true"/>
+      <relationship name="parameter" inverseName="modules" copyBehavior="shallow" cardinality="toone" destinationType="Parameter" isRequired="true"/>
+    </entity>
+    <entity name="RandomizerModulator" superEntity="Modulator">
+      <property name="amount" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="SeekModulator" superEntity="Modulator">
+      <property name="speedAscending" dataType="double" defaultValue="0"/>
+      <property name="speedDescending" dataType="double" defaultValue="0"/>
+      <property name="asymmetric" dataType="bool" defaultValue="false"/>
+    </entity>
+    <entity name="ADSRModulator" superEntity="Modulator">
+      <property name="initialValue" dataType="float" defaultValue="0"/>
+      <property name="attackTime" dataType="float" defaultValue="1000"/>
+      <property name="attackShape" dataType="float" defaultValue="0"/>
+      <property name="peakValue" dataType="float" defaultValue="0"/>
+      <property name="holdTime" dataType="float" defaultValue="1000"/>
+      <property name="decayTime" dataType="float" defaultValue="1000"/>
+      <property name="decayShape" dataType="float" defaultValue="0"/>
+      <property name="sustainValue" dataType="float" defaultValue="0"/>
+      <property name="releaseTime" dataType="float" defaultValue="1000"/>
+      <property name="releaseShape" dataType="float" defaultValue="0"/>
+      <property name="finalValue" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="SidechainTarget" isAbstract="true">
+      <relationship name="sidechains" inverseName="targets" encodingMethod="reference" cardinality="tomany" destinationType="Sidechain" loadingMethod="precached"/>      
+    </entity>
+    <entity name="SidechainModulator" superEntity="Modulator, SidechainTarget" isLazyLoadSupported="true">
+      <property name="levelMode" dataType="enum" defaultValue="0"/>
+      <property name="amount" dataType="float" defaultValue="0"/>
+      <property name="attackTime" dataType="float" defaultValue="100"/>
+      <property name="releaseTime" dataType="float" defaultValue="200"/>
+      <property name="minimumThreshold" dataType="float" defaultValue="-24"/>
+      <property name="maximumThreshold" dataType="float" defaultValue="-6"/>
+    </entity>
+    <entity name="LFOModulator" superEntity="Modulator">
+      <property name="shape" dataType="enum" defaultValue="0"/>
+      <property name="isTempoSync" dataType="bool" defaultValue="false"/>
+      <property name="rate" dataType="float" defaultValue="0.5"/>
+      <property name="beats" dataType="float" defaultValue="4"/>
+      <property name="phase" dataType="float" defaultValue="0"/>
+      <property name="depth" dataType="float" defaultValue="0"/>
+      <property name="direction" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="AutopitchModulator" superEntity="Modulator">
+      <property name="root" dataType="float" defaultValue="0"/>
+      <property name="pitchAtMinimum" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="SpectralSidechainModulator" superEntity="Modulator">
+      <property name="mode" dataType="enum" defaultValue="0"/>
+      <property name="amount" dataType="float" defaultValue="0"/>
+      <property name="attackTime" dataType="float" defaultValue="100"/>
+      <property name="releaseTime" dataType="float" defaultValue="200"/>
+      <property name="minimumThresholdLevel" dataType="float" defaultValue="-24"/>
+      <property name="maximumThresholdLevel" dataType="float" defaultValue="-6"/>
+      <property name="minimumThresholdFrequency" dataType="float" defaultValue="1000"/>
+      <property name="maximumThresholdFrequency" dataType="float" defaultValue="2000"/>
+      <relationship name="sidechains" inverseName="targets" encodingMethod="reference" cardinality="tomany" destinationType="SpectralSidechain" loadingMethod="precached"/>
+    </entity>
+    <entity name="MultiSound" superEntity="Sound, Loopable, Selector">
+      <property-override name="color" defaultValue="Cyan"/>
+      <property name="playlistMode" dataType="enum" defaultValue="0"/>
+      <property name="playbackMode" dataType="enum" defaultValue="0"/>
+      <relationship name="sounds" inverseName="owner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="Sound"/>
+      <relationship name="playPercentages" inverseName="owner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="PlayPercentage"/>
+      <relationship name="scattererOwner" inverseName="sound" cardinality="toone" destinationType="SoundScatterer" isRequired="!audioTrack and !owner"/>
+      <relationship-override name="owner" isRequired="!audioTrack and !scattererOwner"/>
+      <relationship-override name="audioTrack" isRequired="!owner and !scattererOwner"/>
+      <relationship-override name="parameter" isRequired="!owner and !scattererOwner"/>
+    </entity>
+    <entity name="Parameter" superEntity="AutomatableObject" isAbstract="true">
+      <property name="uiLastRulerScaleRatio" dataType="double" storageType="transient" defaultValue="1"/>
+      <property name="uiLastHorizontalScrollBarValue" dataType="int" storageType="transient" defaultValue="0"/>
+      <relationship name="eventSelector" inverseName="uiLastParameterSelection" storageType="transient" cardinality="toone" destinationType="Event"/>
+      <relationship name="modules" inverseName="parameter" encodingMethod="embed" copyBehavior="deep" nullifyBehavior="cascade" cardinality="tomany" destinationType="Module"/>
+      <relationship name="event" inverseName="parameters" cardinality="toone" destinationType="Event" isRequired="true"/>
+    </entity>
+    <entity name="Triggerable" isAbstract="true">
+      <property name="triggerProbabilityEnabled" dataType="bool" defaultValue="false"/>
+      <property name="triggerProbability" dataType="float" defaultValue="100"/>
+      <property name="triggerConditionMode" dataType="enum" defaultValue="0"/>
+      <relationship name="triggerConditions" inverseName="owner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="TriggerCondition"/>
+    </entity>
+    <entity name="Quantizable" isAbstract="true">
+      <property name="quantizationInterval" dataType="enum" defaultValue="0"/>
+      <property name="transitionOffset" dataType="enum" defaultValue="0"/>
+    </entity>
+    <entity name="TriggerCondition" superEntity="AutomatableObject" isAbstract="true">
+      <relationship name="owner" inverseName="triggerConditions" cardinality="toone" destinationType="Triggerable" isRequired="true"/>
+    </entity>
+    <entity name="ParameterCondition" superEntity="TriggerCondition" isLazyLoadSupported="true">
+      <property name="minimum" dataType="double"/>
+      <property name="maximum" dataType="double"/>
+      <property name="isInverted" dataType="bool" defaultValue="false"/>
+      <relationship name="parameter" inverseName="parameterConditions" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="GameParameter" isRequired="true" loadingMethod="precached"/>
+    </entity>
+    <entity name="EventCondition" superEntity="TriggerCondition">
+      <property name="eventState" dataType="enum" defaultValue="0"/>
+    </entity>
+    <entity name="ParameterProperty" superEntity="AutomatableObject" isLazyLoadSupported="true">
+      <property name="position" dataType="double"/>
+      <relationship name="parameter" inverseName="references" encodingMethod="reference" cardinality="toone" destinationType="ParameterProxy" loadingMethod="precached" isRequired="true"/>
+      <relationship name="owner" inverseName="parameters" cardinality="toone" destinationType="EventSound" isRequired="true"/>
+    </entity>
+    <entity name="PlayPercentage">
+      <property name="percentage" dataType="float"/>
+      <relationship name="sound" inverseName="playPercentage" encodingMethod="reference" cardinality="toone" destinationType="Sound" isRequired="true"/>
+      <relationship name="owner" inverseName="playPercentages" cardinality="toone" destinationType="MultiSound" isRequired="true"/>
+    </entity>
+    <entity name="Region" superEntity="Marker" isAbstract="true">
+      <property name="length" dataType="double"/>
+    </entity>
+    <entity name="ProgrammerSoundPlaceholder" isAbstract="true">
+      <relationship name="programmerSounds" inverseName="placeholder" encodingMethod="external" cardinality="tomany" destinationType="ProgrammerSound"/>
+    </entity>
+    <entity name="ProgrammerSound" superEntity="Sound, Loopable">
+      <property-override name="color" defaultValue="Magenta"/>
+      <property name="outputFormat" dataType="enum" defaultValue="-1"/>
+      <property name="selectedKey" dataType="string" storageType="transient"/>
+      <relationship name="placeholder" inverseName="programmerSounds" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="ProgrammerSoundPlaceholder"/>
+    </entity>
+    <entity name="ProfilerFolder" superEntity="Folder" filePath="Metadata/ProfilerFolder/{id}.xml">
+      <relationship-override name="folder" autoGenerate="Path(ProfilerSessionFolder)"/>
+    </entity>
+    <entity name="ProfilerSessionFolder" superEntity="ProfilerFolder" isSingleton="true" filePath="Metadata/ProfilerFolder/{id}.xml">
+      <property-override name="name" defaultValue="Profiler Sessions"/>
+      <relationship name="workspace" inverseName="profilerSessionFolder" cardinality="toone" destinationType="Workspace" autoGenerate="Path(Workspace)" isRequired="true"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="ProfilerSession" superEntity="Event" isLazyLoadSupported="true" filePath="Metadata/ProfilerSession/{id}/{id}.xml">
+      <property name="profilerAutomaticScopeInMode" dataType="enum"/>
+      <relationship name="profilerTracks" inverseName="profilerSession" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="ProfilerTrack"/>
+      <relationship name="profilerSystemTrack" inverseName="profilerSession" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="ProfilerSystemTrack" autoGenerate="ProfilerSystemTrack" isRequired="true"/>
+      <relationship-override name="mixerInput" autoGenerate="" isRequired="false"/>
+      <relationship-override name="groupTracks" autoGenerate=""/>
+      <relationship-override name="folder" destinationType="ProfilerFolder" autoGenerate="Path(ProfilerSessionFolder)"/>
+      <relationship-override name="profilerTrackers" isHidden="true"/>
+      <relationship-override name="profilerGraphs" isHidden="true"/>
+    </entity>
+    <entity name="ProfilerTrackable" isAbstract="true">
+      <!-- naming it profilerTrackers to avoid collision with ProfilerSession.profilerTracks -->
+      <relationship name="profilerTrackers" inverseName="objectBeingTracked" cardinality="tomany" nullifyBehavior="cascade" destinationType="ProfilerTrack" loadingMethod="precached"/>
+    </entity>
+    <entity name="ProfilerGraphable" isAbstract="true">
+      <relationship name="profilerGraphs" inverseName="objectBeingGraphed" nullifyBehavior="cascade" cardinality="tomany" destinationType="ProfilerGraph" loadingMethod="precached"/>
+    </entity>
+    <entity name="ProfilerTrack" superEntity="AudioTrack" isLazyLoadSupported="true">
+      <relationship name="profilerSession" inverseName="profilerTracks" cardinality="toone" destinationType="ProfilerSession" isRequired="true"/>
+      <relationship name="objectBeingTracked" inverseName="profilerTrackers" encodingMethod="reference" cardinality="toone" destinationType="ProfilerTrackable" loadingMethod="precached" isRequired="true"/>
+    </entity>
+    <entity name="ProfilerSystemTrack" superEntity="ProfilerTrack" isLazyLoadSupported="true">
+      <property-override name="uiAutomationTracksVisible" defaultValue="true"/>
+      <relationship-override name="profilerSession" inverseName="profilerSystemTrack"/>
+      <relationship-override name="objectBeingTracked" autoGenerate="Path(Mixer.masterBus)"/>
+    </entity>
+    <entity name="ProfilerGraph" superEntity="AutomationTrack" isLazyLoadSupported="true">
+      <property name="graphType" dataType="enum"/>
+      <property name="instanceId" dataType="int" defaultValue="-1"/>
+      <relationship-override name="automator" isRequired="false"/>
+      <relationship name="objectBeingGraphed" inverseName="profilerGraphs" encodingMethod="reference" cardinality="toone" destinationType="ProfilerGraphable" loadingMethod="precached" isRequired="true"/>
+    </entity>
+    <entity name="ProfilerRecordingMarker" superEntity="NamedMarker"/>
+    <entity name="ProjectSettings" isSingleton="optional">
+      <property name="openWindows" dataType="stringlist" storageType="transient"/>
+      <property name="windowLayout" dataType="bytearray" storageType="transient"/>
+      <relationship name="activeLocale" inverseName="uiActiveLocaleOwner" encodingMethod="reference" storageType="transient" cardinality="toone" destinationType="Locale"/>
+      <relationship name="activePlatform" inverseName="uiActivePlatformOwner" encodingMethod="reference" storageType="transient" cardinality="toone" destinationType="Platform"/>
+      <relationship name="workspace" inverseName="projectSettings" storageType="transient" cardinality="toone" destinationType="Workspace" autoGenerate="Path(Workspace)" isRequired="true"/>
+    </entity>
+    <entity name="ReturnTrack" superEntity="AudioTrack, PlatformSpecificItem">
+      <relationship name="mixerReturn" inverseName="returnTrack" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="EventMixerReturn" autoGenerate="EventMixerReturn" isRequired="true"/>
+      <relationship name="event" inverseName="returnTracks" cardinality="toone" destinationType="Event" isRequired="true"/>
+    </entity>
+    <entity name="Sidechain" superEntity="MixerEffect" isLazyLoadSupported="true">
+      <property name="level" dataType="float" defaultValue="0"/>
+      <relationship name="targets" inverseName="sidechains" encodingMethod="external" cardinality="tomany" destinationType="SidechainTarget" loadingMethod="precached"/>
+    </entity>
+    <entity name="SpectrumAnalyzer" superEntity="MixerEffect" isLazyLoadSupported="true">
+      <property name="downmix" dataType="enum" defaultValue="1"/>
+      <property name="channel" dataType="int" defaultValue="0"/>
+    </entity>
+    <entity name="SpectralSidechain" superEntity="SpectrumAnalyzer" isLazyLoadSupported="true">
+      <property name="level" dataType="float" defaultValue="0"/>
+      <property name="minimumFrequency" dataType="float" defaultValue="1000"/>
+      <property name="maximumFrequency" dataType="float" defaultValue="2000"/>
+      <relationship name="targets" inverseName="sidechains" encodingMethod="external" cardinality="tomany" destinationType="SpectralSidechainModulator" loadingMethod="precached"/>
+    </entity>
+    <entity name="SilenceSound" superEntity="Sound, Loopable">
+      <property-override name="color" defaultValue="Magenta"/>
+      <property name="duration" dataType="float" defaultValue="1000"/>
+    </entity>
+    <entity name="SingleSound" superEntity="Sound, Loopable">
+      <relationship name="audioFile" inverseName="sounds" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="AudioFile"/>
+    </entity>
+    <entity name="SnapshotGroup" superEntity="Folder" filePath="Metadata/SnapshotGroup/{id}.xml">
+      <relationship-override name="items" storageType="persistent" loadingMethod="onload"/>
+      <relationship-override name="folder" encodingMethod="none" loadingMethod="onload" autoGenerate="Path(SnapshotList)"/>
+    </entity>
+    <entity name="SnapshotList" superEntity="SnapshotGroup" isSingleton="true" filePath="Metadata/SnapshotGroup/{id}.xml">
+      <relationship name="mixer" inverseName="snapshotList" encodingMethod="reference" cardinality="toone" destinationType="Mixer" isRequired="true" autoGenerate="Path(Mixer)"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="Snapshot" superEntity="Event" filePath="Metadata/Snapshot/{id}.xml">
+      <property name="behavior" dataType="enum" defaultValue="0"/>
+      <relationship name="snapshotMasterTrack" inverseName="snapshot" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="SnapshotMasterTrack" autoGenerate="SnapshotMasterTrack" isRequired="true"/>
+      <relationship name="snapshotProperties" inverseName="snapshot" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="SnapshotProperty"/>
+      <relationship name="snapshotTracks" inverseName="snapshot" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="SnapshotTrack"/>
+      <relationship-override name="folder" encodingMethod="none" destinationType="SnapshotGroup" autoGenerate="Path(SnapshotList)" loadingMethod="onload"/>
+      <relationship-override name="mixer" inverseName="snapshots" encodingMethod="reference" nullifyBehavior="sever" copyBehavior="shallow" destinationType="Mixer" autoGenerate="Path(Mixer)" loadingMethod="precached"/>
+      <relationship-override name="masterTrack" autoGenerate="" isRequired="false"/>
+      <relationship-override name="mixerInput" autoGenerate="" isRequired="false"/>
+      <relationship-override name="groupTracks" autoGenerate=""/>
+      <relationship-override name="references" destinationType="SnapshotModule"/>
+    </entity>
+    <entity name="SnapshotMasterTrack" superEntity="AudioTrack, Colorable">
+      <property-override name="color" isSearchable="false"/>
+      <relationship name="snapshot" inverseName="snapshotMasterTrack" cardinality="toone" destinationType="Snapshot" isRequired="true"/>
+    </entity>
+    <entity name="SnapshotTrack" superEntity="AudioTrack">
+      <relationship name="snapshot" inverseName="snapshotTracks" cardinality="toone" destinationType="Snapshot" isRequired="true"/>
+      <relationship name="mixerStrip" inverseName="snapshotTracks" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="MixerStrip" isRequired="true"/>
+    </entity>
+    <entity name="SnapshotProperty" superEntity="AutomatableObject">
+      <property name="propertyName" dataType="utf8"/>
+      <property name="value" dataType="float"/>
+      <relationship name="snapshot" inverseName="snapshotProperties" cardinality="toone" destinationType="Snapshot" isRequired="true"/>
+      <relationship name="automatableObject" inverseName="snapshotProperties" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="AutomatableObject" isRequired="true"/>
+    </entity>
+    <entity name="SnapshotModule" superEntity="EventSound" isLazyLoadSupported="true">
+      <property-override name="color" defaultValue="Red"/>
+      <property name="intensity" dataType="float" defaultValue="100"/>
+      <relationship-override name="event" destinationType="Snapshot"/>
+    </entity>
+    <entity name="Sound" superEntity="Module" isAbstract="true">
+      <property name="volume" dataType="float" defaultValue="0"/>
+      <property name="pitch" dataType="float" defaultValue="0"/>
+      <relationship name="playPercentage" inverseName="sound" nullifyBehavior="cascade" cardinality="toone" destinationType="PlayPercentage"/>
+      <relationship name="owner" inverseName="sounds" cardinality="toone" destinationType="MultiSound" isRequired="!audioTrack"/>
+      <relationship-override name="audioTrack" isRequired="!owner"/>
+      <relationship-override name="parameter" isRequired="!owner"/>
+    </entity>
+    <entity name="SoundScatterer" superEntity="Sound">
+      <property-override name="color" defaultValue="Green"/>
+      <property name="polyphony" dataType="int" defaultValue="16"/>
+      <property name="soundStealing" dataType="enum" defaultValue="0"/>
+      <property name="totalSounds" dataType="int" defaultValue="33"/>
+      <property name="spawnDelayType" dataType="enum" defaultValue="0"/>
+      <property name="minimumTimeBetweenSounds" dataType="float" defaultValue="500"/>
+      <property name="maximumTimeBetweenSounds" dataType="float" defaultValue="1000"/>
+      <property name="spawnQuantizationInterval" dataType="enum" defaultValue="2"/>
+      <property name="spawnRate" dataType="float" defaultValue="100"/>
+      <property name="minimumScatterDistance" dataType="float" defaultValue="1"/>
+      <property name="maximumScatterDistance" dataType="float" defaultValue="20"/>
+      <property name="volumeRandomization" dataType="float" defaultValue="0"/>
+      <property name="pitchRandomization" dataType="float" defaultValue="0"/>
+      <relationship name="sound" inverseName="scattererOwner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="MultiSound" autoGenerate="MultiSound" isRequired="true"/>
+    </entity>
+    <entity name="SpatialEffect" superEntity="MixerEffect" isAbstract="true">
+      <property name="distanceRolloffType" dataType="enum" defaultValue="0"/>
+      <property name="minimumDistance" dataType="float" defaultValue="1"/>
+      <property name="maximumDistance" dataType="float" defaultValue="20"/>
+      <property name="overrideRange" dataType="bool" defaultValue="false"/>
+      <property name="extentMode" dataType="enum" defaultValue="0"/>
+      <property name="soundSize" dataType="float" defaultValue="0"/>
+      <property name="minimumExtent" dataType="float" defaultValue="0"/>
+      <property name="derivedMinimumDistance" dataType="float" defaultValue="0" storageType="transient"/>
+      <property name="derivedMaximumDistance" dataType="float" defaultValue="0" storageType="transient"/>
+    </entity>
+    <entity name="SpatialiserEffect" superEntity="SpatialEffect">
+      <property name="occlusionEnabled" dataType="bool" defaultValue="true"/>
+      <property name="dopplerMultiplier" dataType="float" defaultValue="100"/>
+      <property name="panBlend" dataType="float" defaultValue="1"/>
+      <property name="userPanDirection" dataType="float" defaultValue="0"/>
+      <property name="userPanExtent" dataType="float" defaultValue="360"/>
+      <property name="userLFELevel" dataType="float" defaultValue="0"/>
+      <property name="LFEUpmixEnabled" dataType="bool" defaultValue="false"/>
+      <property name="stereoToSurroundUserPanMode" dataType="enum" defaultValue="1"/>
+      <property name="userStereoSeparation" dataType="float" defaultValue="60"/>
+      <property name="userStereoAxis" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="ObjectSpatialiserEffect" superEntity="SpatialEffect"/>
+    <entity name="SandboxFolder" superEntity="Folder" filePath="Metadata/SandboxFolder/{id}.xml">
+      <relationship-override name="folder" autoGenerate="Path(MasterSandboxFolder)"/>
+    </entity>
+    <entity name="MasterSandboxFolder" superEntity="SandboxFolder" isSingleton="true" filePath="Metadata/SandboxFolder/{id}.xml">
+      <property-override name="name" defaultValue="Master"/>
+      <relationship name="workspace" inverseName="masterSandboxFolder" cardinality="toone" destinationType="Workspace" isRequired="true"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="SandboxScene" superEntity="Event, SandboxParameterOwner" filePath="Metadata/SandboxScene/{id}.xml" isLazyLoadSupported="true">
+      <property name="uiLastSceneScale" dataType="float" storageType="transient"  defaultValue="2"/>
+      <property name="uiLastSceneCenterX" dataType="float" storageType="transient"  defaultValue="0"/>
+      <property name="uiLastSceneCenterZ" dataType="float" storageType="transient"  defaultValue="0"/>
+      <relationship name="listeners" inverseName="scene" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="SandboxListener"/>
+      <relationship name="emitters" inverseName="scene" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="SandboxEmitter"/>
+      <relationship-override name="mixer" autoGenerate="" isRequired="false"/>
+      <relationship-override name="masterTrack" autoGenerate="" isRequired="false"/>
+      <relationship-override name="mixerInput" autoGenerate="" isRequired="false"/>
+      <relationship-override name="automatableProperties" autoGenerate="" isRequired="false"/>
+      <relationship-override name="groupTracks" autoGenerate=""/>
+      <relationship-override name="folder" destinationType="SandboxFolder" autoGenerate="Path(MasterSandboxFolder)"/>
+      <relationship-override name="profilerTrackers" isHidden="true"/>
+      <relationship-override name="profilerGraphs" isHidden="true"/>
+    </entity>
+    <entity name="SandboxPositionable" superEntity="Selectable" isAbstract="true">
+      <property name="positionX" dataType="float" defaultValue="0"/>
+      <property name="positionZ" dataType="float" defaultValue="0"/>
+      <property name="rotationY" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="SandboxListener" superEntity="SandboxPositionable">
+      <relationship name="scene" inverseName="listeners" cardinality="toone" destinationType="SandboxScene" isRequired="true"/>
+    </entity>
+    <entity name="SandboxEmitter" superEntity="SandboxPositionable, SandboxParameterOwner">
+      <property name="loopPlayback" dataType="bool" defaultValue="false"/>
+      <relationship name="event" inverseName="sandboxEmitters" encodingMethod="reference" nullifyBehavior="sever" copyBehavior="shallow" cardinality="toone" destinationType="Event" loadingMethod="precached" isRequired="true"/>
+      <relationship name="scene" inverseName="emitters" cardinality="toone" destinationType="SandboxScene" isRequired="true"/>
+    </entity>
+    <entity name="SandboxParameter">
+      <property name="parameterValue" dataType="float"/>
+      <relationship name="parameter" inverseName="sandboxParameters" encodingMethod="reference" cardinality="toone" destinationType="GameParameter" loadingMethod="precached" isRequired="true"/>
+      <relationship name="parameterOwner" inverseName="sandboxParameters" cardinality="toone" destinationType="SandboxParameterOwner" isRequired="true"/>
+    </entity>
+    <entity name="SandboxParameterOwner" isAbstract="true">
+      <relationship name="sandboxParameters" inverseName="parameterOwner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="SandboxParameter"/>
+    </entity>
+    <entity name="SustainPoint" superEntity="Marker, Triggerable"/>
+    <entity name="Tag" superEntity="WorkspaceItem">
+      <relationship-override name="folder" encodingMethod="none" destinationType="TagFolder" autoGenerate="Path(MasterTagFolder)"/>      
+      <relationship name="taggables" inverseName="tags" encodingMethod="reference" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="Taggable" loadingMethod="precached"/>
+    </entity>
+    <entity name="TagFolder" superEntity="Folder">
+      <relationship-override name="folder" autoGenerate="Path(MasterTagFolder)"/>      
+      <relationship-override name="items" storageType="persistent" encodingMethod="embed" destinationType="WorkspaceItem"/>
+    </entity>
+    <entity name="MasterTagFolder" superEntity="TagFolder" isSingleton="true" filePath="Metadata/Tags.xml">
+      <relationship name="workspace" inverseName="masterTagFolder" cardinality="toone" destinationType="Workspace" isRequired="true"/>
+      <relationship-override name="items" storageType="persistent" encodingMethod="embed"/>
+      <relationship-override name="folder" isRequired="false"/>
+    </entity>
+    <entity name="TempoMarker" superEntity="Marker">
+      <property name="tempo" dataType="float" defaultValue="120"/>
+      <property name="timeSignatureNumerator" dataType="int" defaultValue="4"/>
+      <property name="timeSignatureDenominator" dataType="int" defaultValue="4"/>
+    </entity>
+    <entity name="ActionSheet" superEntity="Parameter">
+      <property name="name" dataType="string" defaultValue="Actions"/>
+      <relationship-override name="modules" inverseName="parameter" cardinality="toone" destinationType="MultiSound" isRequired="true"/>
+    </entity>
+    <entity name="Timeline" superEntity="Parameter, ParameterPrototype">
+      <property name="isProxyEnabled" dataType="bool" defaultValue="true"/>
+      <relationship name="markers" inverseName="timeline" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" destinationType="Marker"/>
+      <relationship-override name="event" inverseName="timeline"/>
+    </entity>
+    <entity name="TransitionTimeline" superEntity="Timeline">
+      <property name="length" dataType="double" defaultValue="1"/>
+      <relationship-override name="event" inverseName="transitionTimeline" destinationType="TransitionTimelineOwner"/>
+    </entity>
+    <entity name="TransitionSourceSound" superEntity="Module"/>
+    <entity name="TransitionDestinationSound" superEntity="Module"/>
+    <entity name="TransitionFadeCurve" superEntity="FadeCurve" isAbstract="true"/>
+    <entity name="TransitionSourceFadeOutCurve" superEntity="TransitionFadeCurve"/>
+    <entity name="TransitionDestinationFadeInCurve" superEntity="TransitionFadeCurve"/>
+    <entity name="UserProperty">
+      <property name="key" dataType="string"/>
+      <property name="value" dataType="string"/>
+      <relationship name="event" inverseName="userProperties" cardinality="toone" destinationType="Event" isRequired="true"/>
+    </entity>
+    <entity name="Workspace" isSingleton="true" filePath="Metadata/Workspace.xml">
+      <property name="isSourceControlForAssetsEnabled" dataType="bool" defaultValue="true"/>
+      <property name="isSourceControlForBuiltBanksEnabled" dataType="bool" defaultValue="true"/>
+      <property name="isSourceControlForProfilerSessionsEnabled" dataType="bool" defaultValue="true"/>
+      <property name="builtBanksOutputDirectory" dataType="string"/>
+      <property name="builtBanksSeparateAssets" dataType="bool" defaultValue="false"/>
+      <property name="builtBanksSeparateStreams" dataType="bool" defaultValue="false"/>
+      <property name="builtBanksSeparateBankPerAsset" dataType="bool" defaultValue="false"/>
+      <property name="builtBanksIncludeFileNames" dataType="bool" defaultValue="true"/>
+      <property name="builtBanksIncludeReferencedEvents" dataType="bool" defaultValue="true"/>
+      <property name="builtBanksIncludeHash" dataType="bool" defaultValue="true"/>
+      <property name="builtBanksEncryptionKey" dataType="string"/>
+      <property name="builtBanksMirrorBrowserFolderHierarchy" dataType="bool" defaultValue="false"/>
+      <relationship name="projectSettings" inverseName="workspace" encodingMethod="embed" nullifyBehavior="cascade" storageType="transient" cardinality="toone" destinationType="ProjectSettings"/>
+      <relationship name="masterEventFolder" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade" cardinality="toone" destinationType="MasterEventFolder" autoGenerate="MasterEventFolder" isRequired="true"/>
+      <relationship name="masterTagFolder" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade"  cardinality="toone" destinationType="MasterTagFolder" autoGenerate="MasterTagFolder" isRequired="true"/>
+      <relationship name="masterEffectPresetFolder" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade"  cardinality="toone" destinationType="MasterEffectPresetFolder" autoGenerate="MasterEffectPresetFolder" isRequired="true"/>
+      <relationship name="masterParameterPresetFolder" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade"  cardinality="toone" destinationType="MasterParameterPresetFolder" autoGenerate="MasterParameterPresetFolder" isRequired="true"/>
+      <relationship name="masterBankFolder" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade"  cardinality="toone" destinationType="MasterBankFolder" autoGenerate="MasterBankFolder" isRequired="true"/>
+      <relationship name="masterSandboxFolder" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade"  cardinality="toone" destinationType="MasterSandboxFolder" autoGenerate="MasterSandboxFolder" isRequired="true"/>
+      <relationship name="masterAssetFolder" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade" cardinality="toone" destinationType="MasterAssetFolder" autoGenerate="MasterAssetFolder" isRequired="true"/>      
+      <relationship name="sourceControlProvider" inverseName="workspace" encodingMethod="embed" nullifyBehavior="cascade" storageType="transient" cardinality="toone" destinationType="SourceControlProvider"/>
+      <relationship name="changelist" inverseName="workspace" encodingMethod="embed" nullifyBehavior="cascade" storageType="transient" cardinality="toone" destinationType="WorkspaceChangelist"/>
+      <relationship name="mixer" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade" cardinality="toone" destinationType="Mixer" autoGenerate="Mixer" isRequired="true"/>
+      <relationship name="profilerSessionFolder" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade" cardinality="toone" destinationType="ProfilerSessionFolder" autoGenerate="ProfilerSessionFolder" isRequired="true"/>
+      <relationship name="platforms" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade" cardinality="tomany" destinationType="Platform"/>
+      <relationship name="locales" inverseName="workspace" encodingMethod="reference" nullifyBehavior="cascade" cardinality="tomany" destinationType="Locale"/>
+      <relationship name="customBindings" inverseName="workspace" encodingMethod="embed" nullifyBehavior="cascade" storageType="transient" cardinality="tomany" destinationType="ControlSurfaceCustomBindings"/>
+    </entity>
+    <entity name="WorkspaceItem" superEntity="Notable, Colorable" isAbstract="true">
+      <property name="name" dataType="string"/>
+      <relationship name="folder" inverseName="items" encodingMethod="reference" cardinality="toone" destinationType="Folder" loadingMethod="precached" isRequired="true"/>
+    </entity>
+    <entity name="WorkspaceChangelist" isSingleton="optional">
+      <property name="filesOnHold" dataType="stringlist" storageType="transient"/>
+      <property name="filesExplicitlyLocked" dataType="stringlist" storageType="transient"/>
+      <relationship name="workspace" inverseName="changelist" storageType="transient" cardinality="toone" destinationType="Workspace" autoGenerate="Path(Workspace)" isRequired="true"/>
+    </entity>
+    <entity name="ControlSurface" isAbstract="true" isGlobal="true">
+      <property name="name" dataType="string" storageType="transient"/>
+      <property name="color" dataType="color" defaultValue="#00b0e8" storageType="transient"/>
+      <relationship name="customBindings" inverseName="controlSurface" nullifyBehavior="cascade" storageType="transient" cardinality="tomany" destinationType="ControlSurfaceCustomBindings"/>
+      <relationship name="protocols" inverseName="controlSurface" encodingMethod="embed" nullifyBehavior="cascade" storageType="transient" cardinality="tomany" ordering="ordered" destinationType="ControlSurfaceProtocol"/>
+    </entity>
+    <entity name="MackieControlSurface" superEntity="ControlSurface" isGlobal="true"/>
+    <entity name="MackieExtendedControlSurface" superEntity="ControlSurface" isGlobal="true"/>
+    <entity name="SslNucleusControlSurface" superEntity="ControlSurface" isGlobal="true"/>
+    <entity name="TouchOscControlSurface" superEntity="ControlSurface" isGlobal="true"/>
+    <entity name="ControlSurfaceCustomBindings">
+      <relationship name="customBindings" inverseName="owner" encodingMethod="embed" nullifyBehavior="cascade" storageType="transient" cardinality="tomany" destinationType="ControlSurfaceCustomBinding"/>
+      <relationship name="workspace" inverseName="customBindings" storageType="transient" cardinality="toone" destinationType="Workspace" isRequired="true"/>
+      <relationship name="controlSurface" inverseName="customBindings" encodingMethod="reference" storageType="transient" cardinality="toone" destinationType="ControlSurface" isRequired="true"/>
+    </entity>
+    <entity name="ControlSurfaceCustomBinding">
+      <relationship name="owner" inverseName="customBindings" storageType="transient" cardinality="toone" destinationType="ControlSurfaceCustomBindings" isRequired="true"/>
+      <relationship name="linkedObject" inverseName="customBindings" encodingMethod="reference" storageType="transient" cardinality="toone" destinationType="AutomatableObject" isRequired="true"/>
+    </entity>
+    <entity name="ControlSurfaceProtocol" isAbstract="true" isGlobal="true">
+      <relationship name="controlSurface" inverseName="protocols" storageType="transient" cardinality="toone" destinationType="ControlSurface" isRequired="true"/>
+    </entity>
+    <entity name="MidiControlSurfaceProtocol" superEntity="ControlSurfaceProtocol" isGlobal="true">
+      <property name="inputPortName" dataType="string" storageType="transient"/>
+      <property name="outputPortName" dataType="string" storageType="transient"/>
+      <property name="inputPort" dataType="int" defaultValue="-1" storageType="transient"/>
+      <property name="outputPort" dataType="int" defaultValue="-1" storageType="transient"/>
+    </entity>
+    <entity name="OscControlSurfaceProtocol" superEntity="ControlSurfaceProtocol" isGlobal="true">
+      <property name="inputPort" dataType="int" storageType="transient"/>
+      <property name="outputPort" dataType="int" storageType="transient"/>
+      <property name="address" dataType="string" storageType="transient"/>
+    </entity>
+    <entity name="SourceControlProvider" isAbstract="true">
+      <relationship name="workspace" inverseName="sourceControlProvider" cardinality="toone" storageType="transient" destinationType="Workspace" isRequired="true"/>
+    </entity>
+    <entity name="ScriptBasedProvider" superEntity="SourceControlProvider">
+      <property name="name" dataType="string" storageType="transient"/>
+      <property name="settings" dataType="string" storageType="transient"/>
+    </entity>    
+    <entity name="WorkspaceBasedSourceControlProvider" superEntity="SourceControlProvider" isAbstract="true">
+      <property name="repositoryLocation" dataType="string" storageType="transient"/>
+      <property name="workspaceRoot" dataType="string" storageType="transient"/>
+    </entity>
+    <entity name="TransitionDestination" isAbstract="true">
+      <property name="name" dataType="string"/>
+      <relationship name="references" inverseName="destination" cardinality="tomany" destinationType="TransitionTimelineOwner"/>
+    </entity>
+    <entity name="NamedMarker" superEntity="Marker, TransitionDestination"/>
+    <entity name="NamedWorkspaceBasedSourceControlProvider" superEntity="WorkspaceBasedSourceControlProvider" isAbstract="true">
+      <property name="workspaceName" dataType="string" storageType="transient"/>
+    </entity>
+    <entity name="PerforceProvider" superEntity="NamedWorkspaceBasedSourceControlProvider">
+      <property name="p4Port" dataType="string" storageType="transient"/>
+      <property name="p4Host" dataType="string" storageType="transient"/>
+      <property name="p4Charset" dataType="string" storageType="transient"/>
+      <property name="p4User" dataType="string" storageType="transient"/>
+      <property name="p4Password" dataType="string" storageType="transient"/>
+      <property name="p4WorkspaceForm" dataType="string" storageType="transient"/>
+    </entity>
+    <entity name="PluginSettings" isGlobal="true" isSingleton="optional">
+      <property name="pluginFolders" dataType="stringlist" storageType="transient"/>
+    </entity>
+    <entity name="Plugin">
+      <property name="identifier" dataType="string" isSearchable="true"/>
+      <relationship name="pluginParameters" inverseName="plugin" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="tomany" ordering="ordered" destinationType="PluginParameter"/>
+      <relationship name="owner" inverseName="plugin" cardinality="toone" destinationType="PluginOwner" isRequired="true"/>
+    </entity>
+    <entity name="PluginOwner" isAbstract="true">
+      <relationship name="plugin" inverseName="owner" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="Plugin" isRequired="true"/>
+    </entity>
+    <entity name="PluginEffect" superEntity="MixerEffect, PluginOwner, SidechainTarget" isLazyLoadSupported="true"/>
+    <entity name="PluginSound" superEntity="Sound, PluginOwner">
+      <property-override name="isAsync" isHidden="true"/>
+      <property-override name="isCutoff" isHidden="true"/>
+      <property-override name="startOffset" isHidden="true"/>
+      <property-override name="volume" isHidden="true"/>
+      <property-override name="pitch" isHidden="true"/>
+      <property-override name="color" defaultValue="Magenta"/>
+    </entity>
+    <entity name="PluginParameter" superEntity="AutomatableObject" isAbstract="true">
+      <property name="name" dataType="string"/>
+      <property name="value" dataType="variant"/>
+      <relationship name="plugin" inverseName="pluginParameters" cardinality="toone" destinationType="Plugin" isRequired="true"/>
+    </entity>
+    <entity name="FloatPluginParameter" superEntity="PluginParameter">
+      <property name="curve" dataType="string"/>
+      <property-override name="value" dataType="float"/>
+    </entity>
+    <entity name="IntPluginParameter" superEntity="PluginParameter">
+      <property name="minimumValue" dataType="int"/>
+      <property name="maximumValue" dataType="int"/>
+      <property-override name="value" dataType="int"/>
+    </entity>
+    <entity name="BoolPluginParameter" superEntity="PluginParameter">
+      <property-override name="value" dataType="bool"/>
+    </entity>
+    <entity name="DataPluginParameter" superEntity="PluginParameter, DataReferee">
+      <property name="dataType" dataType="int"/>
+      <property-override name="value" dataType="bytearray"/>
+    </entity>
+    <entity name="TfsProvider" superEntity="NamedWorkspaceBasedSourceControlProvider">
+      <property name="serverURL" dataType="string" storageType="transient"/>
+      <property name="connectionPath" dataType="string" storageType="transient"/>
+      <property name="connectionPort" dataType="int" storageType="transient" defaultValue="8080"/>
+      <property name="connectionProtocol" dataType="string" storageType="transient" defaultValue="http"/>
+      <property name="workspaceFormString" dataType="string" storageType="transient"/>
+    </entity>
+    <entity name="TransitionTimelineOwner" isAbstract="true">
+      <relationship name="transitionTimeline" inverseName="event" encodingMethod="embed" nullifyBehavior="cascade" copyBehavior="deep" cardinality="toone" destinationType="TransitionTimeline"/>
+      <relationship name="destination" inverseName="references" encodingMethod="reference" copyBehavior="shallow" cardinality="toone" destinationType="TransitionDestination"/>
+      <property name="uiTransitionTimelineVisible" dataType="bool" storageType="transient" defaultValue="false"/>
+    </entity>
+    <entity name="TransitionMarker" superEntity="Marker, TransitionTimelineOwner, Triggerable"/>
+    <entity name="TransitionRegion" superEntity="Region, TransitionTimelineOwner, Triggerable, Quantizable"/>
+    <entity name="ChannelMixEffect" superEntity="MixerEffect">
+      <property name="outputGrouping" dataType="enum" defaultValue="0"/>
+      <property name="gain00" dataType="float" defaultValue="0"/>
+      <property name="gain01" dataType="float" defaultValue="0"/>
+      <property name="gain02" dataType="float" defaultValue="0"/>
+      <property name="gain03" dataType="float" defaultValue="0"/>
+      <property name="gain04" dataType="float" defaultValue="0"/>
+      <property name="gain05" dataType="float" defaultValue="0"/>
+      <property name="gain06" dataType="float" defaultValue="0"/>
+      <property name="gain07" dataType="float" defaultValue="0"/>
+      <property name="gain08" dataType="float" defaultValue="0"/>
+      <property name="gain09" dataType="float" defaultValue="0"/>
+      <property name="gain10" dataType="float" defaultValue="0"/>
+      <property name="gain11" dataType="float" defaultValue="0"/>
+      <property name="gain12" dataType="float" defaultValue="0"/>
+      <property name="gain13" dataType="float" defaultValue="0"/>
+      <property name="gain14" dataType="float" defaultValue="0"/>
+      <property name="gain15" dataType="float" defaultValue="0"/>
+      <property name="gain16" dataType="float" defaultValue="0"/>
+      <property name="gain17" dataType="float" defaultValue="0"/>
+      <property name="gain18" dataType="float" defaultValue="0"/>
+      <property name="gain19" dataType="float" defaultValue="0"/>
+      <property name="gain20" dataType="float" defaultValue="0"/>
+      <property name="gain21" dataType="float" defaultValue="0"/>
+      <property name="gain22" dataType="float" defaultValue="0"/>
+      <property name="gain23" dataType="float" defaultValue="0"/>
+      <property name="gain24" dataType="float" defaultValue="0"/>
+      <property name="gain25" dataType="float" defaultValue="0"/>
+      <property name="gain26" dataType="float" defaultValue="0"/>
+      <property name="gain27" dataType="float" defaultValue="0"/>
+      <property name="gain28" dataType="float" defaultValue="0"/>
+      <property name="gain29" dataType="float" defaultValue="0"/>
+      <property name="gain30" dataType="float" defaultValue="0"/>
+      <property name="gain31" dataType="float" defaultValue="0"/>
+      <property name="output00" dataType="int" defaultValue="0"/>
+      <property name="output01" dataType="int" defaultValue="1"/>
+      <property name="output02" dataType="int" defaultValue="2"/>
+      <property name="output03" dataType="int" defaultValue="3"/>
+      <property name="output04" dataType="int" defaultValue="4"/>
+      <property name="output05" dataType="int" defaultValue="5"/>
+      <property name="output06" dataType="int" defaultValue="6"/>
+      <property name="output07" dataType="int" defaultValue="7"/>
+      <property name="output08" dataType="int" defaultValue="8"/>
+      <property name="output09" dataType="int" defaultValue="9"/>
+      <property name="output10" dataType="int" defaultValue="10"/>
+      <property name="output11" dataType="int" defaultValue="11"/>
+      <property name="output12" dataType="int" defaultValue="12"/>
+      <property name="output13" dataType="int" defaultValue="13"/>
+      <property name="output14" dataType="int" defaultValue="14"/>
+      <property name="output15" dataType="int" defaultValue="15"/>
+      <property name="output16" dataType="int" defaultValue="16"/>
+      <property name="output17" dataType="int" defaultValue="17"/>
+      <property name="output18" dataType="int" defaultValue="18"/>
+      <property name="output19" dataType="int" defaultValue="19"/>
+      <property name="output20" dataType="int" defaultValue="20"/>
+      <property name="output21" dataType="int" defaultValue="21"/>
+      <property name="output22" dataType="int" defaultValue="22"/>
+      <property name="output23" dataType="int" defaultValue="23"/>
+      <property name="output24" dataType="int" defaultValue="24"/>
+      <property name="output25" dataType="int" defaultValue="25"/>
+      <property name="output26" dataType="int" defaultValue="26"/>
+      <property name="output27" dataType="int" defaultValue="27"/>
+      <property name="output28" dataType="int" defaultValue="28"/>
+      <property name="output29" dataType="int" defaultValue="29"/>
+      <property name="output30" dataType="int" defaultValue="30"/>
+      <property name="output31" dataType="int" defaultValue="31"/>
+    </entity>
+    <entity name="GainEffect" superEntity="MixerEffect">
+      <property name="gain" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="TransceiverEffect" superEntity="MixerEffect">
+      <property name="transmitMode" dataType="bool" defaultValue="false"/>
+      <property name="level" dataType="float" defaultValue="0"/>
+      <property name="channel" dataType="int" defaultValue="0"/>
+      <property name="speakerMode" dataType="enum" defaultValue="-1"/>      
+    </entity>
+    <entity name="TremoloEffect" superEntity="MixerEffect">
+      <property name="frequency" dataType="float" defaultValue="5"/>
+      <property name="depth" dataType="float" defaultValue="1"/>
+      <property name="shape" dataType="float" defaultValue="0"/>
+      <property name="skew" dataType="float" defaultValue="0"/>
+      <property name="duty" dataType="float" defaultValue="0.5"/>
+      <property name="square" dataType="float" defaultValue="0"/>
+      <property name="phase" dataType="float" defaultValue="0"/>
+      <property name="spread" dataType="float" defaultValue="0"/>
+    </entity>
+    <entity name="HighpassSimpleEffect" superEntity="MixerEffect">
+      <property name="cutoff" dataType="float" defaultValue="2000"/>
+    </entity>
+    <entity name="LowpassSimpleEffect" superEntity="MixerEffect">
+      <property name="cutoff" dataType="float" defaultValue="2000"/>
+    </entity>
+    <entity name="DistortionEffect" superEntity="MixerEffect">
+      <property name="level" dataType="float" defaultValue="0.5"/>
+    </entity>
+    <entity name="PitchShifterEffect" superEntity="MixerEffect">
+      <property name="pitch" dataType="float" defaultValue="0.5"/>
+      <property name="fftSize" dataType="float" defaultValue="1024.0"/>
+      <property name="overlap" dataType="float" defaultValue="4.0"/>
+      <property name="maxChannels" dataType="float" defaultValue="0.0"/>
+    </entity>
+    <entity name="ITEchoEffect" superEntity="MixerEffect">
+      <property name="wetDryMix" dataType="float" defaultValue="50.0"/>
+      <property name="feedback" dataType="float" defaultValue="50.0"/>
+      <property name="leftDelay" dataType="float" defaultValue="500.0"/>
+      <property name="rightDelay" dataType="float" defaultValue="500.0"/>
+      <property name="panDelay" dataType="float" defaultValue="0.0"/>
+    </entity>
+    <entity name="PlatformSpecificItem" isAbstract="true">
+      <relationship name="excludedPlatforms" inverseName="excludedItems" encodingMethod="reference" copyBehavior="shallow" cardinality="tomany" destinationType="Platform"/>
+    </entity>
+  </entities>
+</model>
