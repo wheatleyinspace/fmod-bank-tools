@@ -293,14 +293,16 @@ Inside `LIST BEFX`, each effect instance is encapsulated in a `BEFF` chunk:
 ```cpp
 #pragma pack(push, 1)
 struct BusEffectHeader_BEFB {
-    FMOD_GUID_RAW effectGuid;           // [0x00..0x0F] 16-byte effect instance GUID
-    FMOD_GUID_RAW ownerBusGuid;         // [0x10..0x1F] 16-byte parent mixer bus GUID
-    uint32_t      dspType;              // [0x20..0x23] Disk DSP Type enum (0..34)
-    uint16_t      flags;                // [0x24..0x25] Bypass and processing flags
+    FMOD_GUID_RAW effectGuid;           // [0x00..0x0F] 16-byte effect instance GUID (read by sub_180127360)
+    uint32_t      dspType;              // [0x10..0x13] Disk DSP Type enum (translated via sub_1801352A0)
+    uint8_t       flags;                // [0x14] Bypass / processing flag (0x00 = active, 0x01 = bypassed)
 };
 #pragma pack(pop)
-static_assert(sizeof(BusEffectHeader_BEFB) == 38, "BusEffectHeader_BEFB must be 38 bytes");
+static_assert(sizeof(BusEffectHeader_BEFB) == 21, "BusEffectHeader_BEFB must be 21 bytes");
 ```
+
+> [!NOTE]
+> In FMOD 2.x, effect ownership is maintained by the parent mixer bus in `LIST GBSS` (`BUS ` block), which contains the array of attached `effectGuids`.
 
 ### 5.2. DSP Parameters Deserializer (`PMEF` / `sub_180148D20`)
 Inside each effect block, the `PMEF` chunk stores the parameter state:
@@ -383,12 +385,14 @@ Master and group buses are deserialized in `sub_18012A670`:
 ```cpp
 #pragma pack(push, 1)
 struct GroupBusHeader_GBSB {
-    FMOD_GUID_RAW busGuid;              // [0x00..0x0F] 16-byte bus GUID
-    FMOD_GUID_RAW parentBusGuid;        // [0x10..0x1F] Parent bus GUID (0 if root)
+    FMOD_GUID_RAW busGuid;              // [0x00..0x0F] 16-byte bus GUID (read by sub_180127400 -> sub_180128B40)
+    FMOD_GUID_RAW parentBusGuid;        // [0x10..0x1F] Parent bus GUID (read by sub_1801330F0 -> sub_180126740, 0 if root)
     uint16_t      busIndex;             // [0x20..0x21] Subsystem bus index
+    uint32_t      flags;                // [0x22..0x25] Routing & processing flags
+    int32_t       targetPort;           // [0x26..0x29] Target output port index (-1 / 0xFFFFFFFF if none)
 };
 #pragma pack(pop)
-static_assert(sizeof(GroupBusHeader_GBSB) == 34, "GroupBusHeader_GBSB must be 34 bytes");
+static_assert(sizeof(GroupBusHeader_GBSB) == 42, "GroupBusHeader_GBSB must be 42 bytes");
 ```
 
 Immediately following `GBSB`, the atomic `BUS ` chunk defines routing parameters and effect attachments:
@@ -403,27 +407,27 @@ struct BusCommonBlock_BUS {
     uint16_t maxVoices;                 // [0x0E..0x0F] Max concurrent voices
     uint32_t flags;                     // [0x10..0x13] Mute, solo, bypass flags
     uint32_t numEffects;                // [0x14..0x17] Number of attached DSP effects
-    // Followed by FMOD_GUID_RAW effectGuids[numEffects]
+    // Followed by FMOD_GUID_RAW effectGuids[numEffects] (16 bytes each)
 };
 #pragma pack(pop)
 ```
 
 ### 6.2. VCA Channels (`VCAS` / `VCAB` / `sub_180137120`)
-Inside `LIST VCAS`, each VCA is stored in a 42-byte atomic `VCAB` chunk:
+Inside `LIST VCAS`, each VCA is stored in a dynamic, variable-length `VCAB` chunk:
 
 ```cpp
 #pragma pack(push, 1)
 struct VcaBlock_VCAB {
     FMOD_GUID_RAW vcaGuid;              // [0x00..0x0F] 16-byte unique VCA GUID
-    float         volume;               // [0x10..0x13] Linear gain (default 1.0f = 0 dB)
-    uint32_t      flags;                // [0x14..0x17] Solo / Mute bitfield
-    uint32_t      numTargetBuses;       // [0x18..0x1B] Number of controlled mixer buses
-    uint32_t      reserved;             // [0x1C..0x1F]
-    uint16_t      vcaIndex;             // [0x20..0x21] Index in runtime VCA array
-    uint64_t      padding;              // [0x22..0x29]
+    uint32_t      flagsAndCount;        // [0x10..0x13] Control flags and target count
+    // Followed by dynamic array:
+    // FMOD_GUID_RAW targetBusGuids[numTargetBuses]; (each 16 bytes)
+    // Followed by 12-byte trailing runtime control block:
+    //   uint32_t vcaIndex;             // Index in runtime VCA array
+    //   uint32_t reserved;             // Reserved / status flags
+    //   float    volume;               // Linear gain (default 1.0f = 0 dB)
 };
 #pragma pack(pop)
-static_assert(sizeof(VcaBlock_VCAB) == 42, "VcaBlock_VCAB must be 42 bytes");
 ```
 
 ### 6.3. Return Buses (`RBSS` / `RBSB` / `sub_18012A670`)
@@ -461,31 +465,39 @@ static_assert(sizeof(SendEffect_SEFB) == 37, "SendEffect_SEFB must be 37 bytes")
 ## 7. Parameters and Automation Curves (`PRMS`, `CRVS`, `PMLS`, `MPGS`)
 
 ### 7.1. Game Parameters (`PRMS` / `PRMB` / `sub_18012C590`)
-Game parameters are stored as 52-byte atomic `PRMB` records:
+Game parameters are stored inside `PRMB` records with an inline variable-length parameter name string:
 
 ```cpp
 #pragma pack(push, 1)
 struct Parameter_PRMB {
-    FMOD_GUID_RAW paramGuid;            // [0x00..0x0F] 16-byte parameter GUID
-    float         minimum;              // [0x10..0x13] Minimum range value
-    float         maximum;              // [0x14..0x17] Maximum range value
-    float         defaultValue;         // [0x18..0x1B] Default initial value
-    uint32_t      paramType;            // [0x1C..0x1F] 0 = Continuous, 1 = Discrete, 2 = Labeled
-    uint32_t      flags;                // [0x20..0x23] Loop, global, velocity flags
-    float         seekSpeed;            // [0x24..0x27] Seek speed rate
-    float         velocity;             // [0x28..0x2B] Autopitch velocity
-    uint32_t      enumerationIndex;     // [0x2C..0x2F] Enum label array index
-    uint16_t      runtimeIndex;         // [0x30..0x31] Runtime lookup index
+    FMOD_GUID_RAW paramGuid;            // [0x00..0x0F] 16-byte unique parameter GUID
+    uint32_t      paramType;            // [0x10..0x13] 0 = Continuous, 1 = Discrete, 2 = Labeled
+    uint32_t      flags;                // [0x14..0x17] Loop, global, hold, velocity flags
+    uint16_t      nameLength;           // [0x18..0x19] Length of inline parameter name string
+    // Followed by inline ASCII name:
+    // char       name[nameLength];     // e.g. "RPM", "Load", "TopTen"
+    // Followed by parameter value bounds:
+    // float      minimum;              // Minimum range value (e.g. -1.0f or 0.0f)
+    // float      maximum;              // Maximum range value (e.g. 1.0f or 10000.0f)
+    // float      defaultValue;         // Default initial value
+    // float      seekSpeed;            // Seek speed rate (units/sec)
+    // float      velocity;             // Autopitch velocity coefficient
 };
 #pragma pack(pop)
-static_assert(sizeof(Parameter_PRMB) == 52, "Parameter_PRMB must be 52 bytes");
 ```
 
 ### 7.2. Hermite Automation Splines (`CRVS` / `CURV` / `sub_18013FD60`)
-Automation curves in `CURV` chunks use cubic Hermite splines. Each spline knot occupies exactly 16 bytes:
+Automation curves inside `CURV` chunks consist of a 36-byte header followed by an array of 16-byte cubic Hermite spline knots:
 
 ```cpp
 #pragma pack(push, 1)
+struct CurveHeader_CURV {
+    FMOD_GUID_RAW curveGuid;            // [0x00..0x0F] 16-byte unique curve instance GUID
+    FMOD_GUID_RAW ownerGuid;            // [0x10..0x1F] 16-byte owner Automator / Event GUID
+    uint32_t      flagsAndCount;        // [0x20..0x23] Curve flags and packed knot count
+    // Followed by SplineKnot_CURV knots[numKnots]:
+};
+
 struct SplineKnot_CURV {
     float x;                            // [0x00..0x03] Parameter position (timeline sec or param value)
     float y;                            // [0x04..0x07] Automated property output value
@@ -493,6 +505,7 @@ struct SplineKnot_CURV {
     float tangentOut;                   // [0x0C..0x0F] Outgoing tangent derivative dy/dx
 };
 #pragma pack(pop)
+static_assert(sizeof(CurveHeader_CURV) == 36, "CurveHeader_CURV must be 36 bytes");
 static_assert(sizeof(SplineKnot_CURV) == 16, "SplineKnot_CURV must be 16 bytes");
 ```
 
@@ -745,9 +758,9 @@ Inside `LIST SNAS`, snapshots store mixer state overrides:
 ```cpp
 #pragma pack(push, 1)
 struct Snapshot_SNAB {
-    FMOD_GUID_RAW snapshotGuid;         // [0x00..0x0F] 16-byte snapshot GUID
+    FMOD_GUID_RAW snapshotGuid;         // [0x00..0x0F] 16-byte snapshot GUID (read by sub_180127360)
     uint32_t      behaviorFlags;        // [0x10..0x13]
-    uint32_t      numOverrides;         // [0x14..0x17] Number of overridden properties
+    uint16_t      numOverrides;         // [0x14..0x15] Number of overridden properties (2-byte count, sub_18012E771)
     // Followed by SnapshotPropertyOverride overrides[numOverrides]
 };
 #pragma pack(pop)
