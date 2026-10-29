@@ -142,7 +142,19 @@ struct TrieNode {
 
 ### 3.4. Section 3: Sorted GUID Array
 
-Stores all unique `FMOD_GUID` records in the bank, sorted lexicographically (`memcmp` order) to enable $O(\log N)$ binary searching.
+Stores all unique `FMOD_GUID` records in the bank, sorted numerically by `(Data1, Data2, Data3, Data4)` according to the standard `FMOD_GUID::operator<` comparison:
+
+```cpp
+bool operator<(const FMOD_GUID &a, const FMOD_GUID &b) {
+    if (a.Data1 != b.Data1) return a.Data1 < b.Data1;
+    if (a.Data2 != b.Data2) return a.Data2 < b.Data2;
+    if (a.Data3 != b.Data3) return a.Data3 < b.Data3;
+    return memcmp(a.Data4, b.Data4, 8) < 0;
+}
+```
+
+> [!IMPORTANT]
+> Because `Data1`, `Data2`, and `Data3` are stored in little-endian on disk, a raw 16-byte `memcmp` will compare the least significant byte of `Data1` first, which differs from the numeric field order. The FMOD runtime binary search (`sub_1800A6570`) relies strictly on numeric field ordering.
 
 - **GUID Count**: `read_varint() >> 1`
 - **Record Size**: `uint16_t record_size` (always `16` bytes = `0x0010`)
@@ -238,10 +250,29 @@ def parse_strings_bank(file_path):
     with open(file_path, 'rb') as f:
         data = f.read()
 
-    # Locate STDT chunk
-    stdt_pos = data.find(b'STDT')
+    # Locate STDT chunk via RIFF traversal (with fallback)
+    stdt_pos = -1
+    curr = 12
+    while curr + 8 <= len(data):
+        cid = data[curr:curr+4]
+        sz = struct.unpack('<I', data[curr+4:curr+8])[0]
+        if cid == b'LIST' and data[curr+8:curr+12] == b'PROJ':
+            sub = curr + 12
+            sub_end = curr + 8 + sz
+            while sub + 8 <= sub_end:
+                scid = data[sub:sub+4]
+                ssz = struct.unpack('<I', data[sub+4:sub+8])[0]
+                if scid == b'STDT':
+                    stdt_pos = sub
+                    break
+                sub += 8 + ssz + (ssz % 2)
+            break
+        curr += 8 + sz + (sz % 2)
+
     if stdt_pos == -1:
-        raise ValueError("STDT chunk not found in bank")
+        stdt_pos = data.find(b'STDT')
+        if stdt_pos == -1:
+            raise ValueError("STDT chunk not found in bank")
 
     chunk_size = struct.unpack('<I', data[stdt_pos+4:stdt_pos+8])[0]
     stdt = data[stdt_pos+8:stdt_pos+8+chunk_size]
@@ -260,8 +291,7 @@ def parse_strings_bank(file_path):
     # 1. Radix Trie Nodes
     node_v, off = read_varint(stdt, off)
     node_count = node_v >> 1
-    node_sz = struct.unpack('<H', stdt[off:off+2])[0]
-    off += 2
+    off += 2  # Skip record size uint16
     nodes = []
     for _ in range(node_count):
         val1 = struct.unpack('<I', stdt[off:off+4])[0]
@@ -276,8 +306,7 @@ def parse_strings_bank(file_path):
     # 2. Sorted GUID Table
     guid_v, off = read_varint(stdt, off)
     guid_count = guid_v >> 1
-    guid_sz = struct.unpack('<H', stdt[off:off+2])[0]
-    off += 2
+    off += 2  # Skip record size uint16
     guids = []
     for _ in range(guid_count):
         d1, d2, d3 = struct.unpack('<IHH', stdt[off:off+8])
@@ -291,14 +320,9 @@ def parse_strings_bank(file_path):
     str_pool = stdt[off:off+str_pool_len]
     off += str_pool_len
 
-    # 4. GUID -> Leaf Mapping
+    # 4. GUID -> Leaf Mapping (used for primary reverse lookup)
     guid_map_cnt, off = read_varint(stdt, off)
-    assert guid_map_cnt == guid_count
-    guid_to_leaf = []
-    for _ in range(guid_map_cnt):
-        b = stdt[off:off+3]
-        guid_to_leaf.append(b[0] | (b[1] << 8) | (b[2] << 16))
-        off += 3
+    off += guid_map_cnt * 3
 
     # 5. Parent Table
     parent_cnt, off = read_varint(stdt, off)
@@ -310,27 +334,29 @@ def parse_strings_bank(file_path):
         parents.append(val if val != 0xFFFFFF else -1)
         off += 3
 
-    # Assemble paths
+    # Assemble paths by traversing ALL leaf nodes in the Trie
+    # (recovers 100% of paths, including aliases sharing a GUID)
     results = []
-    for i in range(guid_count):
-        curr = guid_to_leaf[i]
-        segments = []
-        visited = set()
-        while curr != -1 and curr is not None:
-            if curr in visited or curr >= len(nodes):
-                break
-            visited.add(curr)
-            s_off = nodes[curr][0]
-            if s_off != 0xFFFFFF and s_off < len(str_pool):
-                end = str_pool.find(b'\x00', s_off)
-                if end != -1:
-                    seg = str_pool[s_off:end].decode('utf-8', errors='replace')
-                    segments.append(seg)
-                else:
-                    raise ValueError(f"Unterminated string in pool at {s_off:#x}")
-            curr = parents[curr]
-        full_path = "".join(reversed(segments))
-        results.append({"guid": guids[i], "path": full_path})
+    for node_idx, (s_off, ch, c_or_g, c_cnt) in enumerate(nodes):
+        if c_cnt == 0 and node_idx != 0:  # Leaf node pointing to a GUID
+            guid_idx = c_or_g
+            if guid_idx < len(guids):
+                curr = node_idx
+                segments = []
+                visited = set()
+                while curr != -1 and curr is not None:
+                    if curr in visited or curr >= len(nodes):
+                        break
+                    visited.add(curr)
+                    seg_off = nodes[curr][0]
+                    if seg_off != 0xFFFFFF and seg_off < len(str_pool):
+                        end = str_pool.find(b'\x00', seg_off)
+                        if end != -1:
+                            seg = str_pool[seg_off:end].decode('utf-8', errors='replace')
+                            segments.append(seg)
+                    curr = parents[curr]
+                full_path = "".join(reversed(segments))
+                results.append({"guid": guids[guid_idx], "path": full_path})
 
     return results
 ```

@@ -386,7 +386,7 @@ def build_stdt_chunk(model: StringsBankModel) -> bytes:
     # 3. Sort children deterministically:
     # Terminal node (prefix == '') first, then lexicographically by raw UTF-8 bytes (matching FMOD Studio builder)
     def sort_children(node: RadixTrieBuilderNode):
-        node.children.sort(key=lambda c: (c.prefix != '', c.prefix.encode('utf-8')))
+        node.children.sort(key=lambda c: (c.prefix != '', c.prefix.lower().encode('utf-8')))
         for c in node.children:
             sort_children(c)
 
@@ -440,8 +440,10 @@ def build_stdt_chunk(model: StringsBankModel) -> bytes:
         n = info['node']
         if n.prefix:
             s_off = len(str_pool)
-            str_pool.extend(n.prefix.encode('utf-8') + b'\x00')
-            ch = ord(n.prefix[0].lower())
+            encoded_prefix = n.prefix.encode('utf-8')
+            str_pool.extend(encoded_prefix + b'\x00')
+            prefix_lower_bytes = n.prefix[:1].lower().encode('utf-8')
+            ch = prefix_lower_bytes[0]
         else:
             s_off = 0xFFFFFF
             ch = 0
