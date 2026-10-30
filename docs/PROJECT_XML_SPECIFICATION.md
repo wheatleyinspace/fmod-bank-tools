@@ -4,7 +4,7 @@
 
 This document specifies the structural invariants, relationship rules, and schema constraints required when generating or validating FMOD Studio project XML files (compatible with `Studio.02.03.00.metamodel.xml`).
 
-While [docs/BANK_SPECIFICATION.md](file:///d:/Gamess/fmodaidecompiler/docs/BANK_SPECIFICATION.md) defines the binary RIFF layout of compiled runtime sound banks, this document covers authoring-level constraints enforced by the FMOD Studio XML validator and compiler.
+While [BANK_SPECIFICATION.md](BANK_SPECIFICATION.md) defines the binary RIFF layout of compiled runtime sound banks, this document covers authoring-level constraints enforced by the FMOD Studio XML validator and compiler.
 
 ---
 
