@@ -41,7 +41,7 @@ An FMOD bank is structured as an extended **RIFF** container using the FourCC id
 |   ├── VCAS : VCA channels                                               |
 |   ├── EVTS : Sound events                                               |
 |   ├── TLNS : Event timelines                                            |
-|   ├── PMLS : Parameter markers and loops                                |
+|   ├── PMLS : Parameter models                                           |
 |   ├── PRMS : Game parameters                                            |
 |   ├── CTRS : Transition cues and automation controllers                 |
 |   ├── CRVS : Automation spline curves                                   |
@@ -60,6 +60,40 @@ An FMOD bank is structured as an extended **RIFF** container using the FourCC id
 | 'SND ' [uint32 SndSize] [16-byte alignment padding] 'FSB5' ...          |
 +-------------------------------------------------------------------------+
 ```
+
+### 2.1. Chunk Hierarchy and Container Map
+
+Within `LIST PROJ`, collections of entities are encapsulated in typed RIFF `LIST` sub-containers. Empty collections have a chunk size of strictly **4 bytes** containing only the 4-byte list type FourCC (e.g. `'LIST' [size=4] 'SEFX'`). Non-empty collections contain atomic records or nested sub-lists:
+
+| Parent Container (`LIST`) | Child Chunk Tag | Enclosed Structure | Description & Section Reference |
+|---|---|---|---|
+| `LIST PROJ` | `BNKI` | `BankInfo_BNKI` | Bank identity GUID, build flags, checksum (§13.3) |
+| `LIST WAVS` | `LCNT` + `WAV ` | `SampleDescriptor_WAV` | Waveform sample descriptors (30B per sample) (§4.2, §15.1) |
+| `LIST GBSS` | `GBSB` + `BUS ` | `GroupBusHeader_GBSB` | Group mixer buses & routing parameters (§6.1) |
+| `LIST IBSS` | `IBSB` + `BUS ` | `GroupBusHeader_GBSB` | Input stage mixer buses (§6.1) |
+| `LIST MBSS` | `MBSB` + `BUS ` | `GroupBusHeader_GBSB` | Master mixer bus (§6.1) |
+| `LIST RBSS` | `RBSB` + `BUS ` | `ReturnBus_RBSB` | Auxiliary return mixer buses (§6.3) |
+| `LIST VCAS` | `VCAB` | `VcaBlock_VCAB` | VCA channel descriptors with target bus array (§6.2) |
+| `LIST BEFX` | `BEFF` (`BEFB`+`PMEF`) | `BusEffectHeader_BEFB` | Bus DSP effect instances & parameter state (§5.1) |
+| `LIST SEFX` | `SEFB` | `SendEffect_SEFB` | Auxiliary send effect taps (37B) (§6.4) |
+| `LIST PRMS` | `PRMB` | `Parameter_PRMB` | Game parameters with inline ASCII name strings (§7.1) |
+| `LIST PMLS` | `LCNT` + `PMLO` (`PMLB`) | `ParameterModel_PMLB` | Parameter models (driving parameter & curves) (§7.3) |
+| `LIST CRVS` | `CURV` | `CurveHeader_CURV` | Cubic Hermite automation spline curves (§7.2) |
+| `LIST CTRS` | `CTRL` | `Controller_CTRL` | Automation controller property links (52B) (§10.1) |
+| `LIST EVTS` | `EVTB` | `EventData_EVTB` | Sound events, 3D settings & track linkages (§8.1) |
+| `LIST TLNS` | `TMLN` (`TLNB`+`TRNS`) | `Timeline_TLNB` | Event timelines, tracks & transition logic (§8.2) |
+| `LIST WAIS` | `WAIT` (`INST`+`WAIB`) | `SoundInstance_INST` | Single-sound audio instruments (§9.1, §9.2) |
+| `LIST MUIS` | `MUIT` (`INST`+`PLST`) | `MultiSoundPlaylist_PLST` | Multi-sound randomized / sequential playlists (§9.3) |
+| `LIST SPIS` | `SPIT` (`SPIB`+`PLST`) | `Scatterer_SPIB` | Scatterer randomized sound instruments (§9.4) |
+| `LIST EVIS` | `EVIT` (`EVIB`+`INST`) | `EventInstrument_EVIB` | Referenced event instruments (§9.4) |
+| `LIST CMDS` | `CMDI` (`CMDB`+`INST`) | `CommandInstrument_CMDB` | Parameter & event command instruments (§9.4) |
+| `LIST PRIS` | `PRIT` (`PRIB`+`INST`) | `Programmer_PRIB` | Programmer sound callback instruments (§9.4) |
+| `LIST SNAS` | `SNAP` (`SNAB`) | `Snapshot_SNAB` | Mixer snapshot parameter override blocks (§12) |
+| `LIST MODS` | `MODU` (`MODB`) | `Modulator_MODB` | Parameter modulators (AHDSR, LFO, Randomizer) (§11) |
+| `LIST PROJ` | `SNDH` | `SoundHeader_SNDH` | Fixed 12-byte audio stream placement header (§13.1) |
+| `LIST PROJ` | `HASH` | `GuidHashTable_HASH` | O(1) GUID lookup index table (§13.2) |
+| `LIST PROJ` | `PLAT` | `PlatformInfo_PLAT` | Target compilation platform identifier (§13.4) |
+| Top-level | `SND ` | FSB5 Container | Bit-packed audio streams (Vorbis / FADPCM) (§4.1, §14) |
 
 ---
 
@@ -210,7 +244,7 @@ FMOD_RESULT BankReader_serializeBank(BankData *bank, RiffStream *stream) {
 
     // 30. DEL : Deleted items index (if version >= 0x5D)
     if (stream->version >= 0x5D) {
-        res = serializeDeletedList(stream, &bank->deletedList, 0x204C4544 /* ' DEL' */);
+        res = serializeDeletedList(stream, &bank->deletedList, 0x204C4544 /* 'DEL ' */);
         if (res != FMOD_OK) goto error;
     }
 
@@ -240,6 +274,9 @@ error:
     return res;
 }
 ```
+
+> [!NOTE]
+> **Backwards Compatibility Branches**: The `BankReader::serializeBank` dispatcher maintains legacy parsing branches for older bank versions (such as `SUBS` subsound serialization when `stream->version < 0x3C`). In modern FMOD Studio 2.x banks (`formatVersion >= 0x8C` / 140, as present in `Host.bank` and `Pause.bank`), these legacy branches are bypassed. All bank versions $\ge 0x8C$ require `LIST PRTS` (port buses), and versions $\ge 0x91$ require `LIST SSFX` (spatializer effects).
 
 ---
 
@@ -287,7 +324,7 @@ static_assert(sizeof(SampleDescriptor_WAV) == 30, "SampleDescriptor_WAV must be 
 
 ## 5. DSP Chains (`BEFX`, `BEFF`, `BEFB`, `PMEF`)
 
-### 5.1. Bus Effect Descriptor `BEFF`
+### 5.1. Bus Effect Descriptor (LIST BEFX / BEFF / BEFB)
 Inside `LIST BEFX`, each effect instance is encapsulated in a `BEFF` chunk:
 
 ```cpp
@@ -302,7 +339,7 @@ static_assert(sizeof(BusEffectHeader_BEFB) == 21, "BusEffectHeader_BEFB must be 
 ```
 
 > [!NOTE]
-> In FMOD 2.x, effect ownership is maintained by the parent mixer bus in `LIST GBSS` (`BUS ` block), which contains the array of attached `effectGuids`.
+> **DSP Chain Placement**: In FMOD 2.x, sound events (`EVTB`) do not contain effect chains directly. An event's DSP effects are hosted on its output bus (`EVTB.outputBusGuid`) or input bus (`EVTB.inputBusGuid`). The bus descriptor in `LIST GBSS` (`BUS ` block) declares `numEffects` followed by the array of `effectGuids` pointing to `BEFB` entries in `LIST BEFX`.
 
 ### 5.2. DSP Parameters Deserializer (`PMEF` / `sub_180148D20`)
 Inside each effect block, the `PMEF` chunk stores the parameter state:
@@ -326,11 +363,12 @@ FMOD_RESULT deserializeParameter(RiffStream *stream, DspParameter *param) {
         case 2: // Boolean (uint8_t)
             stream->read(&param->boolValue, sizeof(uint8_t));
             break;
-        case 3: // Data buffer (variable-length blob)
+        case 3: { // Data buffer (variable-length blob)
             uint32_t dataLength = readShiftedVarint(stream);
             param->data.resize(dataLength);
             stream->read(param->data.data(), dataLength);
             break;
+        }
         default:
             return FMOD_ERR_FORMAT;
     }
@@ -339,41 +377,48 @@ FMOD_RESULT deserializeParameter(RiffStream *stream, DspParameter *param) {
 ```
 
 ### 5.3. Disk DSP Type to Runtime `FMOD_DSP_TYPE` Translation Table (`sub_1801352A0`)
-In FMOD Studio binaries, disk DSP indices in `BEFB.dspType` do not match the runtime `FMOD_DSP_TYPE` enumeration 1:1. Function `sub_1801352A0` translates them using an internal switch table (`jpt_180135306`):
+In FMOD Studio binaries, disk DSP indices in `BEFB.dspType` do not match the runtime `FMOD_DSP_TYPE` enumeration 1:1. Function `sub_1801352A0` (`toFMOD`) translates disk indices using an internal jump table (`jpt_180135306`):
 
-| Disk Type (`dspType`) | Runtime `FMOD_DSP_TYPE` | FMOD Studio XML Class | Description |
-|---|---|---|---|
-| `0` | `FMOD_DSP_TYPE_MIXER` (0) | `MixerBusFader` | Channel fader |
-| `1` | `FMOD_DSP_TYPE_OSCILLATOR` (1) | `OscillatorEffect` | Test tone generator |
-| `2` | `FMOD_DSP_TYPE_LOWPASS` (2) | `LowpassEffect` | Standard lowpass filter |
-| `3` | `FMOD_DSP_TYPE_ITLOWPASS` (3) | `ITLowpassEffect` | Impulse Tracker lowpass |
-| `4` | `FMOD_DSP_TYPE_HIGHPASS` (4) | `HighpassEffect` | Standard highpass filter |
-| `5` | `FMOD_DSP_TYPE_ECHO` (5) | `EchoEffect` | Basic echo |
-| `6` | `FMOD_DSP_TYPE_FADER` (6) | `MixerBusFader` | Bus gain fader |
-| `7` | `FMOD_DSP_TYPE_FLANGE` (7) | `FlangerEffect` | Flanger |
-| `8` | `FMOD_DSP_TYPE_DISTORTION` (8) | `DistortionEffect` | Distortion |
-| `9` | `FMOD_DSP_TYPE_NORMALIZE` (9) | `NormalizeEffect` | Dynamics normalizer |
-| `10` | `FMOD_DSP_TYPE_LIMITER` (10) | `LimiterEffect` | Hard limiter |
-| `11` | `FMOD_DSP_TYPE_PARAMEQ` (11) | `ParametricEQEffect` | Parametric equalizer |
-| `12` | `FMOD_DSP_TYPE_PITCHSHIFT` (12) | `PitchShifterEffect` | Pitch shifter |
-| `13` | `FMOD_DSP_TYPE_CHORUS` (13) | `ChorusEffect` | Chorus |
-| `14` | `FMOD_DSP_TYPE_VSTPLUGIN` (14) | `PluginEffect` | VST/AU external plugin |
-| `15` | `FMOD_DSP_TYPE_WINAMPPLUGIN` (15)| `PluginEffect` | Legacy plugin wrapper |
-| `16` | `FMOD_DSP_TYPE_ITECHO` (16) | `ITEchoEffect` | IT Echo |
-| `17` | `FMOD_DSP_TYPE_COMPRESSOR` (17) | `CompressorEffect` | Dynamics compressor |
-| `18` | `FMOD_DSP_TYPE_SFXREVERB` (18) | `SFXReverbEffect` | Algorithmic reverb |
-| `19` | `FMOD_DSP_TYPE_LOWPASS_SIMPLE` (19)| `LowpassSimpleEffect` | Simple 6dB/oct lowpass |
-| `20` | `FMOD_DSP_TYPE_DELAY` (20) | `DelayEffect` | Multitap delay |
-| `21` | `FMOD_DSP_TYPE_TREMOLO` (21) | `TremoloEffect` | Tremolo |
-| `24` | `FMOD_DSP_TYPE_SEND` (24) | `MixerSend` | Bus send tap |
-| `25` | `FMOD_DSP_TYPE_RETURN` (25) | `MixerReturn` | Return bus receiver |
-| `26` | `FMOD_DSP_TYPE_HIGHPASS_SIMPLE` (26)| `HighpassSimpleEffect` | Simple 6dB/oct highpass |
-| `27` | `FMOD_DSP_TYPE_PAN` (27) | `SpatialiserEffect` | Panner / 3D spatializer |
-| `28` | `FMOD_DSP_TYPE_THREE_EQ` (28) | `ThreeEQEffect` | 3-band DJ equalizer |
-| `30` | `FMOD_DSP_TYPE_LOUDNESS_METER` (30)| `LoudnessMeter` | LUFS/EBU R128 meter |
-| `32` | `FMOD_DSP_TYPE_CONVOLUTIONREVERB` (32)| `ConvolutionReverbEffect`| Impulse response reverb |
-| `33` | `FMOD_DSP_TYPE_CHANNELMIX` (33) | `ChannelMixEffect` | Matrix channel mixer |
-| `34` | `FMOD_DSP_TYPE_MULTIBAND_EQ` (34)| `MultibandEqEffect` | 5-band multiband EQ |
+| Disk Type (`dspType`) | Runtime `FMOD_DSP_TYPE` Enum | Value | FMOD Studio XML Class | Description |
+|---|---|---|---|---|
+| `0` | `FMOD_DSP_TYPE_UNKNOWN` | 0 | - | Unmapped / generic plugin wrapper |
+| `1` | `FMOD_DSP_TYPE_MIXER` | 1 | `MixerBusFader` | Internal mixing bus unit |
+| `2` | `FMOD_DSP_TYPE_OSCILLATOR` | 2 | `OscillatorEffect` | Sine/square test tone generator |
+| `3` | `FMOD_DSP_TYPE_LOWPASS` | 3 | `LowpassEffect` | Standard lowpass filter |
+| `4` | `FMOD_DSP_TYPE_ITLOWPASS` | 4 | `ITLowpassEffect` | Impulse Tracker style resonant lowpass |
+| `5` | `FMOD_DSP_TYPE_HIGHPASS` | 5 | `HighpassEffect` | Standard highpass filter |
+| `6` | `FMOD_DSP_TYPE_ECHO` | 6 | `EchoEffect` | Basic echo / delay line |
+| `7` | `FMOD_DSP_TYPE_FADER` | 7 | `MixerBusFader` | Standard bus gain and level fader |
+| `8` | `FMOD_DSP_TYPE_FLANGE` | 8 | `FlangerEffect` | Flange modulation effect |
+| `9` | `FMOD_DSP_TYPE_DISTORTION` | 9 | `DistortionEffect` | Distortion stage |
+| `10` | `FMOD_DSP_TYPE_NORMALIZE` | 10 | `NormalizeEffect` | Dynamic normalizer |
+| `11` | `FMOD_DSP_TYPE_LIMITER` | 11 | `LimiterEffect` | Hard peak limiter |
+| `12` | `FMOD_DSP_TYPE_PARAMEQ` | 12 | `ParametricEQEffect` | Parametric equalizer |
+| `13` | `FMOD_DSP_TYPE_PITCHSHIFT` | 13 | `PitchShifterEffect` | Pitch shifter |
+| `14` | `FMOD_DSP_TYPE_CHORUS` | 14 | `ChorusEffect` | Chorus modulation |
+| `15` | `FMOD_DSP_TYPE_UNKNOWN` | 0 | `PluginEffect` | External VST/AU plugin (dispatched to plugin host) |
+| `16` | `FMOD_DSP_TYPE_UNKNOWN` | 0 | `PluginEffect` | Legacy plugin wrapper |
+| `17` | `FMOD_DSP_TYPE_ITECHO` | 15 | `ITEchoEffect` | Impulse Tracker resonant echo |
+| `18` | `FMOD_DSP_TYPE_COMPRESSOR` | 16 | `CompressorEffect` | Dynamics compressor |
+| `19` | `FMOD_DSP_TYPE_SFXREVERB` | 17 | `SFXReverbEffect` | Algorithmic reverb |
+| `20` | `FMOD_DSP_TYPE_LOWPASS_SIMPLE` | 18 | `LowpassSimpleEffect` | 6 dB/octave simple lowpass |
+| `21` | `FMOD_DSP_TYPE_DELAY` | 19 | `DelayEffect` | Multitap delay |
+| `22` | `FMOD_DSP_TYPE_TREMOLO` | 20 | `TremoloEffect` | Amplitude modulation tremolo |
+| `23` | `FMOD_DSP_TYPE_UNKNOWN` | 0 | - | Unassigned |
+| `24` | `FMOD_DSP_TYPE_SEND` | 21 | `MixerSend` | Auxiliary bus send tap |
+| `25` | `FMOD_DSP_TYPE_RETURN` | 22 | `MixerReturn` | Auxiliary bus return receiver |
+| `26` | `FMOD_DSP_TYPE_HIGHPASS_SIMPLE` | 23 | `HighpassSimpleEffect` | 6 dB/octave simple highpass |
+| `27` | `FMOD_DSP_TYPE_PAN` | 24 | `SpatialiserEffect` | Panner and 3D spatializer |
+| `28` | `FMOD_DSP_TYPE_THREE_EQ` | 25 | `ThreeEQEffect` | 3-band DJ equalizer (Low, Mid, High) |
+| `29` | `FMOD_DSP_TYPE_FFT` | 26 | `ObjectSpatialiserEffect` | FFT spectrum analyzer |
+| `30` | `FMOD_DSP_TYPE_LOUDNESS_METER` | 27 | `LoudnessMeter` | ITU-R BS.1770 / EBU R128 loudness meter |
+| `31` | `FMOD_DSP_TYPE_UNKNOWN` | 0 | - | Unassigned |
+| `32` | `FMOD_DSP_TYPE_CONVOLUTIONREVERB` | 28 | `ConvolutionReverbEffect` | Impulse response convolution reverb |
+| `33` | `FMOD_DSP_TYPE_CHANNELMIX` | 29 | `ChannelMixEffect` | Matrix channel mixer and routing |
+| `34` | `FMOD_DSP_TYPE_TRANSCEIVER` | 30 | `TransceiverEffect` | Inter-event audio transceiver |
+| `35` | `FMOD_DSP_TYPE_OBJECTPAN` | 31 | `ObjectSpatialiserEffect` | Object-based spatializer (Dolby Atmos / spatial audio) |
+| `36` | `FMOD_DSP_TYPE_MULTIBAND_EQ` | 32 | `MultibandEqEffect` | 5-band multiband equalizer |
+| `37` | `FMOD_DSP_TYPE_MULTIBAND_DYNAMICS` | 33 | `MultibandDynamicsEffect` | Multiband dynamics compressor / expander |
 
 ---
 
@@ -507,6 +552,21 @@ struct SplineKnot_CURV {
 #pragma pack(pop)
 static_assert(sizeof(CurveHeader_CURV) == 36, "CurveHeader_CURV must be 36 bytes");
 static_assert(sizeof(SplineKnot_CURV) == 16, "SplineKnot_CURV must be 16 bytes");
+```
+
+### 7.3. Parameter Models (`LIST PMLS` / `PMLO` / `PMLB`)
+Inside `LIST PMLS`, parameter models define the relationship between driving game parameters and automation curves. The container begins with an `LCNT` sub-chunk specifying the item count, followed by nested `LIST PMLO` records. Each model contains a fixed 38-byte atomic block `PMLB` (`0x424C4D50`):
+
+```cpp
+#pragma pack(push, 1)
+struct ParameterModel_PMLB {
+    FMOD_GUID_RAW modelGuid;            // [0x00..0x0F] 16-byte parameter model GUID (referenced by CurveHeader_CURV.ownerGuid)
+    FMOD_GUID_RAW parameterGuid;        // [0x10..0x1F] 16-byte driving game parameter GUID (in LIST PRMS)
+    uint32_t      flags;                // [0x20..0x23] Parameter model evaluation flags
+    uint16_t      subIndex;             // [0x24..0x25] Model sub-index
+};
+#pragma pack(pop)
+static_assert(sizeof(ParameterModel_PMLB) == 38, "ParameterModel_PMLB must be 38 bytes");
 ```
 
 ---
@@ -665,6 +725,21 @@ struct SoundInstance_INST {
 static_assert(sizeof(SoundInstance_INST) == 130, "SoundInstance_INST must be exactly 130 bytes");
 ```
 
+#### 9.1.1. Version Gates and Payload Size (123 B vs 130 B)
+The deserializer `sub_18012B780` applies version gates that directly affect the physical byte size of `INST`:
+- **Format Version < `0x82` (123 bytes)**: In older bank versions (e.g. `Vehicles.bank`, format version `0x77` / 119):
+  1. The `bitfield` at offset `0x1C` is serialized as a 1-byte boolean (`uint8_t`) rather than a 4-byte integer (`uint32_t`), saving 3 bytes.
+  2. The transition condition block (`sub_180127280`) is gated by `version >= 0x82` and omitted entirely, saving 4 bytes (the `conditionBytecodeSize` field).
+  - Net size: $130 - 3 - 4 = 123$ bytes.
+- **Format Version $\ge 0x82$ (130 bytes)**: In modern FMOD Studio 2.x banks (e.g. `Host.bank` and `Pause.bank`, format version `0x8C` / 140):
+  - `bitfield` is serialized as a 4-byte `uint32_t` and `conditionBytecodeSize` is present (4 bytes `0x00000000` when no conditions are attached). Total size is exactly 130 bytes.
+- **Historical Field Gates in `sub_18012B780`**:
+  - `loopCount`: Serialized only if `version >= 0x35`.
+  - `fadeMode`: Serialized only if `version >= 0x47`.
+  - `fadeCurveIn`: Serialized only if `version >= 0x48`.
+  - `fadeCurveOut`: Serialized only if `version >= 0x50`.
+  - `conditionBytecode`: Serialized only if `version >= 0x82`.
+
 ### 9.2. Single Sound Instrument `WAIS` / `WAIB`
 Inside `LIST WAIS`, each `WAIT` chunk encapsulates an `INST` base block followed by a 32-byte `WAIB` payload:
 
@@ -693,6 +768,13 @@ struct MultiSoundPlaylist_PLST {
 #pragma pack(pop)
 ```
 
+### 9.4. Other Sound Instrument Modules (`SPIS`, `EVIS`, `CMDS`, `PRIS`)
+All specialized sound modules follow an identical nesting structure inside their respective RIFF `LIST` containers:
+- **`LIST SPIS` (Scatterer Instruments)**: Contains `SPIT` sub-lists consisting of `INST` + `SPIB` payload (min/max spawn interval, 2D distance limits, scatter radius) + `PLST` sub-sound playlist.
+- **`LIST EVIS` (Event Instruments)**: Contains `EVIT` sub-lists consisting of `INST` + `EVIB` payload (`FMOD_GUID_RAW targetEventGuid`, parameter pass-through flags).
+- **`LIST CMDS` (Command Instruments)**: Contains `CMDI` sub-lists consisting of `INST` + `CMDB` payload (target parameter/event GUID, command opcode: start, stop, set parameter).
+- **`LIST PRIS` (Programmer Sound Instruments)**: Contains `PRIT` sub-lists consisting of `INST` + `PRIB` payload (callback identifier token, audio format hints).
+
 ---
 
 ## 10. Automation Controllers (`CTRS` / `CTRL`)
@@ -703,14 +785,17 @@ Stored inside `LIST CTRS`, `CTRL` connects parameters to target properties:
 ```cpp
 #pragma pack(push, 1)
 struct Controller_CTRL {
-    FMOD_GUID_RAW controllerGuid;       // [0x00..0x0F] 16-byte controller GUID
-    FMOD_GUID_RAW targetObjectGuid;     // [0x10..0x1F] Target bus, effect, or instrument GUID
-    uint32_t      propertyTypeIndex;    // [0x20..0x23] Target property index
-    FMOD_GUID_RAW curveGuid;            // [0x24..0x33] Spline curve GUID in LIST CRVS
+    FMOD_GUID_RAW controllerGuid;       // [0x00..0x0F] 16-byte unique controller GUID
+    FMOD_GUID_RAW targetObjectGuid;     // [0x10..0x1F] Target mixer bus, effect instance, or instrument GUID
+    FMOD_GUID_RAW curveGuid;            // [0x20..0x2F] Spline curve GUID in LIST CRVS
+    uint32_t      propertyTypeIndex;    // [0x30..0x33] Target property index (read by sub_180125B30)
 };
 #pragma pack(pop)
 static_assert(sizeof(Controller_CTRL) == 52, "Controller_CTRL must be 52 bytes");
 ```
+
+> [!NOTE]
+> `CTRL` does not store the game parameter GUID directly. Instead, `CTRL` links `targetObjectGuid` and `propertyTypeIndex` to `curveGuid`. The associated driving parameter is bound by the owner of the curve (`CurveHeader_CURV.ownerGuid`), which references the parent `Automator` or `ParameterModel` (`PMLS`).
 
 ### 10.2. Property Index Encoding (`propertyTypeIndex`)
 FMOD Studio uses a dual scheme for `propertyTypeIndex`:
@@ -780,20 +865,22 @@ static_assert(sizeof(SnapshotPropertyOverride) == 28, "SnapshotPropertyOverride 
 
 ## 13. Auxiliary Chunks (`SNDH`, `HASH`, `BNKI`, `PLAT`)
 
-### 13.1. Sound Stream Headers `SNDH` (`sub_1801578B0`)
-Atomic chunk storing byte offsets and lengths of FSB5 sample streams within `SND `:
+### 13.1. Sound Stream Placement Header `SNDH` (`sub_1801578B0`)
+Atomic 12-byte chunk defining the byte placement and payload size of the external/embedded `SND ` audio container:
 
 ```cpp
 #pragma pack(push, 1)
-struct SoundHeaderRecord_SNDH {
-    uint32_t streamOffset;              // Byte offset from start of SND payload
-    uint32_t streamSize;                // Compressed byte size
-    uint32_t sampleRate;                // Audio sample rate (e.g. 48000)
-    uint16_t numChannels;               // Channel count (1 = Mono, 2 = Stereo, 6 = 5.1)
-    uint16_t codecId;                   // Codec identifier (15 = Vorbis)
+struct SoundHeader_SNDH {
+    uint32_t flags;                     // [0x00..0x03] Alignment & stream flags (e.g. 0x00080003 for 16-byte aligned stream)
+    uint32_t sndOffset;                 // [0x04..0x07] Absolute byte offset to the 'SND ' payload within the file
+    uint32_t sndSize;                   // [0x08..0x0B] Byte size of the compressed audio payload
 };
 #pragma pack(pop)
+static_assert(sizeof(SoundHeader_SNDH) == 12, "SoundHeader_SNDH must be 12 bytes");
 ```
+
+> [!NOTE]
+> `SNDH` is a fixed 12-byte header rather than an array of sample records. Audio stream properties (sample rate, channel layout, compression codec, and loop points) are stored within the `FSB5` bitfield descriptors in the `SND ` chunk and `LIST WAVS`, avoiding redundant metadata duplication.
 
 ### 13.2. GUID Hash Table `HASH` (`sub_180138650`)
 Provides $O(1)$ runtime entity lookup by GUID:
@@ -870,7 +957,7 @@ Reference matrix showing the distribution and byte footprint of chunks across pr
 | `SEFX` | Send effects | 4 B | 1,822 B | 226 B | 1,486 B |
 | `SCFX` | Sidechain inputs | 4 B | 188 B | 4 B | 4 B |
 | `PRMS` | Game parameters | 4 B | 1,154 B | 586 B | 1,344 B |
-| `PMLS` | Parameter lines | 4 B | 832 B | 6,712 B | 7,720 B |
+| `PMLS` | Parameter models | 4 B | 832 B | 6,712 B | 7,720 B |
 | `MPGS` | Macro parameter groups | 4 B | 304 B | 416 B | 932 B |
 | `CRVS` | Automation splines | 4 B | 624 B | 27,272 B | 14,164 B |
 | `CTRS` | Controllers | 4 B | 496 B | 4,336 B | 10,036 B |
@@ -887,95 +974,67 @@ Reference matrix showing the distribution and byte footprint of chunks across pr
 | `EFIS` | Effect instruments | 4 B | 4 B | 4 B | 4 B |
 | `SLNS` | Silence instruments | 4 B | 4 B | 4 B | 4 B |
 
+### 15.1. Waveform Container Overhead Formula (`WAVS`)
+The byte size of `LIST WAVS` across banks follows the exact linear formula:
+$$\text{Size}(\text{LIST WAVS}) = 16 + 38 \cdot N$$
+where $N$ is the number of sound assets / waveforms in the bank.
+- **Overhead (16 B)**: 4-byte list type `'WAVS'` + 12-byte `LCNT` sub-chunk (8-byte RIFF header `LCNT` [size=4] + 4-byte `uint32_t count`).
+- **Item Size (38 B)**: Each entry consists of an 8-byte RIFF chunk header (`'WAV '` [size=30]) + 30-byte `SampleDescriptor_WAV` payload.
+- **Cross-Bank Verification**:
+  - `Pause.bank`: $16 + 38 \times 12 = 472\text{ B}$ (exact 12 waveforms).
+  - `Host.bank`: $16 + 38 \times 215 = 8,186\text{ B}$ (exact 215 waveforms).
+  - `Music.bank`: $16 + 38 \times 79 = 3,018\text{ B}$ (exact 79 waveforms).
+  - `SFX.bank`: $16 + 38 \times 367 = 13,962\text{ B}$ (exact 367 waveforms).
+
 ---
 
 ## 16. End-to-End Resolution: From Path to Audio Sample
 
-The full lookup chain from an abstract URI path in `strings.bank` down to physical PCM audio in `FSB5` operates across five discrete links:
+The full lookup chain from an abstract URI path in `strings.bank` down to physical PCM audio in `FSB5` operates across six discrete links:
 
 ```
 [strings.bank] (URI Path -> Event GUID via Radix Trie)
       │
       ▼
-[LIST EVTS / EVTB] (Event GUID -> Timeline GUID)
+[LIST EVTS / EVTB] (Event GUID -> timelineGuid & outputBusGuid)
       │
       ▼
-[LIST WAIS / WAIT / INST] (Timeline GUID == ownerGuid -> Waveform Asset GUID)
+[LIST TLNS / TMLN / TLNB] (timelineGuid -> Array of Track GUIDs)
       │
       ▼
-[LIST WAVS / WAV ] (Waveform Asset GUID -> sampleIndexPacked >> 16)
+[LIST WAIS / WAIT / INST] (Track GUID == INST.trackGuid -> soundInstanceGuid)
       │
       ▼
-[FSB5 / SND ] (Sample Index -> Name Table / Sample Name & Compressed Audio Data)
+[WAIB] (soundInstanceGuid -> waveformAssetGuid)
+      │
+      ▼
+[LIST WAVS / WAV ] (waveformAssetGuid -> sampleIndexPacked >> 16)
+      │
+      ▼
+[FSB5 / SND ] (Sample Index -> Subsound Header & Vorbis/PCM Audio Stream)
 ```
 
 ### Resolution Steps:
 1. **Link 1 (`strings.bank` -> Event GUID)**:
    - Input path (e.g. `event:/SFX/MenuOn`) traverses the Radix Trie to retrieve the event's `FMOD_GUID`.
 2. **Link 2 (`EVTB` -> Timeline GUID)**:
-   - Look up the `EVTB` record matching the event GUID to extract `timelineGuid`.
-3. **Link 3 (`INST` -> Waveform GUID)**:
-   - In `LIST WAIS`, scan `INST` records for `ownerGuid == timelineGuid`.
-   - In the accompanying `WAIB` payload, read `waveformAssetGuid`.
-4. **Link 4 (`WAV ` -> Sample Index)**:
+   - Look up the `EVTB` record in `LIST EVTS` matching the event GUID to extract `timelineGuid`.
+3. **Link 3 (`TLNB` -> Track GUIDs)**:
+   - In `LIST TLNS`, locate the `TMLN` composite list containing `TLNB` matching `timelineGuid`.
+   - Read the list of track GUIDs owned by the timeline.
+4. **Link 4 (`INST` / `WAIB` -> Waveform Asset GUID)**:
+   - In `LIST WAIS`, scan `WAIT` records whose base block `INST.trackGuid` matches one of the timeline's track GUIDs.
+   - Read the accompanying `WAIB` payload to extract `waveformAssetGuid`.
+5. **Link 5 (`WAV ` -> Sample Index)**:
    - In `LIST WAVS`, locate the `WAV ` chunk matching `waveformAssetGuid`.
    - Read `sampleIndexPacked` at offset 20 (`0x14`). Compute `sampleIndex = sampleIndexPacked >> 16`.
-5. **Link 5 (`FSB5` -> PCM Audio Stream)**:
-   - Look up entry `sampleIndex` in the FSB5 container to locate the stream offset and name entry.
+6. **Link 6 (`FSB5` -> PCM Audio Stream)**:
+   - Look up subsound entry `sampleIndex` in the FSB5 container within chunk `SND `.
    - Decompress Vorbis / FADPCM stream into multichannel PCM.
 
 ---
 
-## 17. FMOD Studio Project Object Model Constraints
+## 17. Related Specifications and Schemas
 
-When generating or validating FMOD Studio project XML structures (`Studio.02.03.00.metamodel.xml`), the following structural schema invariants apply:
-
-### 17.1. `ParameterProxy` Context Invariant
-1. In the FMOD Studio XML model, `<object class="ParameterProxy">` acts as the entry point of a parameter into an event scope.
-2. If an event contains an automation curve (`AutomationCurve`) targeting a game parameter, but `<relationship name="parameters">` of `<object class="Event">` does not contain the corresponding `ParameterProxy`, the compiler rejects the model:
-   ```
-   Project contains incomplete or malformed components:
-   - Event ["Event_Name"]
-   ```
-3. Timelines do not use `ParameterProxy`; they connect directly via `<relationship name="timeline">`.
-
-### 17.2. Return Bus Typing: `MixerReturn` vs `MixerGroup`
-1. In `Studio.02.03.00.metamodel.xml`, the send effect connection property has a strict type requirement:
-   ```xml
-   <relationship name="mixerReturn" destinationType="MixerReturn" isRequired="true"/>
-   ```
-2. Auxiliary return buses must be declared as `<object class="MixerReturn">` in `Metadata/Return/`. Declaring them as `MixerGroup` causes validation failure (`Invalid MixerSend target`).
-
-### 17.3. Reciprocal Automator Ownership (`Automator.objectBeingAutomated`)
-1. In the XML model, the link between an automated entity (e.g. `EventMixerGroup`) and its `Automator` is bidirectional.
-2. The `Automator` references the object:
-   ```xml
-   <relationship name="objectBeingAutomated">
-       <destination>{target_guid}</destination>
-   </relationship>
-   ```
-   The target object must reciprocate:
-   ```xml
-   <relationship name="automators">
-       <destination>{automator_guid}</destination>
-   </relationship>
-   ```
-3. Without reciprocal registration, FMOD Studio resets `objectBeingAutomated` to null.
-
-### 17.4. Single Fader Invariant (`MixerBusFader`)
-Each `MixerBusEffectChain` in a track or bus permits strictly **one** instance of `<object class="MixerBusFader">`. Duplicate faders cause effect chain validation errors.
-
-### 17.5. SingleSound Asset Integrity
-Every `<object class="SingleSound">` must contain a valid relationship to an existing `AudioFile` asset:
-```xml
-<relationship name="audioFile">
-    <destination>{audio_file_guid}</destination>
-</relationship>
-```
-An instrument missing this relationship triggers an asset integrity failure during project build.
-
-### 17.6. DSP Effect Placement: `EVTB` vs `GBSB` / `BUS `
-In compiled banks, `EVTB` chunks do not contain effect chains directly. An event's DSP chain is bound through its internal bus GUIDs:
-- `outputBusGuid`: The master effect chain for the event.
-- `inputBusGuid`: The input stage effect chain.
-The bus descriptors in `LIST GBSS` (`GBSB` / `BUS `) declare the array of `effectGuids` pointing to effect instances in `LIST BEFX`.
+- **FMOD Studio Project XML Model Specification**: For XML metamodel structural rules, bidirectional relationship invariants, and project authoring constraints (`Studio.02.03.00.metamodel.xml`), see [docs/PROJECT_XML_SPECIFICATION.md](file:///d:/Gamess/fmodaidecompiler/docs/PROJECT_XML_SPECIFICATION.md).
+- **Strings Bank Specification**: For detailed Radix Trie string table binary layouts, alignment padding, and lookup algorithms, see [docs/STRINGS_BANK_SPECIFICATION.md](file:///d:/Gamess/fmodaidecompiler/docs/STRINGS_BANK_SPECIFICATION.md).
